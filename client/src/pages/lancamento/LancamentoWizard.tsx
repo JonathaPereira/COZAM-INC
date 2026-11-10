@@ -23,6 +23,7 @@ import { Input, Textarea, Select } from '../../components/ui/Input.js';
 import { CurrencyInput } from '../../components/ui/CurrencyInput.js';
 import { FileDropzone } from '../../components/ui/FileDropzone.js';
 import { Card } from '../../components/ui/Card.js';
+import { MunicipalitySelect } from '../../components/ui/MunicipalitySelect.js';
 
 export function LancamentoWizard() {
   const navigate = useNavigate();
@@ -79,6 +80,7 @@ export function LancamentoWizard() {
   const [nfDate, setNfDate] = useState(new Date().toISOString().slice(0, 10));
   const [nfAmount, setNfAmount] = useState<number | null>(null);
   const [modality, setModality] = useState<Modality | ''>('');
+  const [municipality, setMunicipality] = useState('Santana do Mundaú');
   const [nfNotes, setNfNotes] = useState('');
   const [nfFile, setNfFile] = useState<File | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
@@ -163,6 +165,7 @@ export function LancamentoWizard() {
       nfFormData.append('issue_date', nfDate);
       nfFormData.append('amount', String(nfAmount));
       nfFormData.append('modality', modality);
+      if (municipality.trim()) nfFormData.append('municipality', municipality.trim());
       if (nfNotes.trim()) nfFormData.append('notes', nfNotes.trim());
       if (forwardImmediate) nfFormData.append('forward', 'true');
       nfFormData.append('file', nfFile);
@@ -526,6 +529,14 @@ export function LancamentoWizard() {
               </div>
             )}
 
+            {/* Município Consorciado */}
+            <MunicipalitySelect
+              value={municipality}
+              onChange={setMunicipality}
+              label="Município Consorciado de Destino"
+              required
+            />
+
             {/* Modalidade de Pagamento: Cards de seleção única */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
@@ -655,11 +666,17 @@ export function LancamentoWizard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60">
                 <div>
                   <span className="text-slate-500 dark:text-slate-400 block">Modalidade</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {modality ? MODALITY_LABELS[modality] : '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block">Município</span>
+                  <span className="font-semibold text-emerald-800 dark:text-emerald-300">
+                    {municipality || 'Não informado'}
                   </span>
                 </div>
                 <div>

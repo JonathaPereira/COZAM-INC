@@ -298,7 +298,11 @@ export function NotaFiscalDetail() {
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Fornecedor: <span className="font-semibold text-slate-800 dark:text-slate-200">{invoice.supplier_name}</span> · Processo: {invoice.process_number || '—'} · OF: {invoice.of_number || '—'}
+              Fornecedor: <span className="font-semibold text-slate-800 dark:text-slate-200">{invoice.supplier_name}</span>
+              {invoice.municipality && (
+                <> · Município: <span className="font-semibold text-emerald-700 dark:text-emerald-400">📍 {invoice.municipality}</span></>
+              )}
+              {' '}· Processo: {invoice.process_number || '—'} · OF: {invoice.of_number || '—'}
             </p>
           </div>
         </div>
@@ -488,8 +492,13 @@ export function NotaFiscalDetail() {
           <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
             {formatBRL(invoice.amount)}
           </p>
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <ModalityBadge modality={invoice.modality} />
+            {invoice.municipality && (
+              <span className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
+                📍 {invoice.municipality}
+              </span>
+            )}
             <span className="text-2xs text-slate-400">Emissão: {formatDateBR(invoice.issue_date)}</span>
           </div>
         </div>

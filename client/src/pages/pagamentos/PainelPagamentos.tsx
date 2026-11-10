@@ -30,6 +30,7 @@ export function PainelPagamentos() {
   const [search, setSearch] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [modality, setModality] = useState('');
+  const [municipality, setMunicipality] = useState('');
   const [activeTab, setActiveTab] = useState<'TODAS' | 'AGUARDANDO' | 'PARCIAIS' | 'PAGAS'>('TODAS');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -40,6 +41,11 @@ export function PainelPagamentos() {
     queryFn: () => api.get<Supplier[]>('/suppliers'),
   });
 
+  const { data: municipalitiesData } = useQuery({
+    queryKey: ['municipalities'],
+    queryFn: () => api.get<{ municipalities: string[] }>('/invoices/municipalities'),
+  });
+
   const getStatusFilter = () => {
     if (activeTab === 'AGUARDANDO') return 'AGUARDANDO_PAGAMENTO';
     if (activeTab === 'PARCIAIS') return 'PARCIALMENTE_PAGA';
@@ -48,7 +54,7 @@ export function PainelPagamentos() {
   };
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['pagamentos-queue', search, supplierId, modality, activeTab, dateFrom, dateTo, page],
+    queryKey: ['pagamentos-queue', search, supplierId, modality, municipality, activeTab, dateFrom, dateTo, page],
     queryFn: () =>
       api.get<Paginated<InvoiceRow> & { summary: { amount: number; total_paid: number; balance: number } }>(
         '/invoices',
@@ -57,6 +63,7 @@ export function PainelPagamentos() {
           search,
           supplier_id: supplierId,
           modality,
+          municipality,
           status: getStatusFilter(),
           date_from: dateFrom,
           date_to: dateTo,
@@ -130,8 +137,8 @@ export function PainelPagamentos() {
       </div>
 
       {/* Filtros de Pesquisa (sem obrigar número de OF) */}
-      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="sm:col-span-2">
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="sm:col-span-2 lg:col-span-2">
           <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
             Pesquisar por NF, Processo ou Fornecedor
           </label>
@@ -158,6 +165,35 @@ export function PainelPagamentos() {
             {suppliers?.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Município</label>
+          <select
+            value={municipality}
+            onChange={(e) => {
+              setMunicipality(e.target.value);
+              setPage(1);
+            }}
+            className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+          >
+            <option value="">Todos os municípios</option>
+            {Array.from(
+              new Set([
+                'Santana do Mundaú',
+                'Branquinha',
+                'União dos Palmares',
+                'Carneiros',
+                ...(municipalitiesData?.municipalities || []),
+              ])
+            )
+              .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+              .map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
           </select>
         </div>
 
@@ -202,6 +238,11 @@ export function PainelPagamentos() {
                       <Link to={`/notas/${inv.id}`} className="hover:text-emerald-700 dark:hover:text-emerald-400 hover:underline">
                         {inv.invoice_number}
                       </Link>
+                      {inv.municipality && (
+                        <span className="block mt-0.5 text-2xs font-semibold text-emerald-700 dark:text-emerald-400">
+                          📍 {inv.municipality}
+                        </span>
+                      )}
                       {inv.notes && (
                         <span className="block text-2xs text-amber-700 dark:text-amber-400 italic truncate max-w-[140px]" title={inv.notes}>
                           "{inv.notes}"

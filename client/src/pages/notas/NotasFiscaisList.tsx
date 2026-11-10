@@ -188,7 +188,14 @@ export function NotasFiscaisList() {
               {data?.data && data.data.length > 0 ? (
                 data.data.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">{inv.invoice_number}</td>
+                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">
+                      {inv.invoice_number}
+                      {inv.municipality && (
+                        <span className="block mt-0.5 text-2xs font-semibold text-emerald-700 dark:text-emerald-400">
+                          📍 {inv.municipality}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">{inv.supplier_name}</td>
                     <td className="py-3 px-4 text-slate-600 dark:text-slate-400">{formatDateBR(inv.issue_date)}</td>
                     <td className="py-3 px-4"><ModalityBadge modality={inv.modality} /></td>
