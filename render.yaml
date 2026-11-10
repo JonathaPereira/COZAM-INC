@@ -1,0 +1,44 @@
+# ==============================================================================
+# COZAM — Sistema Integrado de Compras e Pagamentos
+# Blueprint de Implantação no Render (render.yaml)
+#
+# Arquitetura:
+#   Web Service Node.js que compila o frontend React (Vite) e roda a API Express,
+#   entregando tanto as rotas /api quanto a SPA servida de client/dist.
+# ==============================================================================
+
+services:
+  - type: web
+    name: cozam-compras-pagamentos
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+
+      # ------------------------------------------------------------------------
+      # Integração com Supabase (Configurar no painel do Render)
+      # ------------------------------------------------------------------------
+      # URL pública do projeto Supabase (ex: https://xyzcompany.supabase.co)
+      - key: SUPABASE_URL
+        sync: false
+
+      # Chave pública/anon do Supabase (para que a API a repasse ao frontend)
+      - key: SUPABASE_ANON_KEY
+        sync: false
+
+      # Chave secreta de serviço do Supabase (NUNCA exposta ao frontend)
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # String de conexão direta com o PostgreSQL do Supabase (Transaction Pooler ou Direct)
+      # Exemplo: postgresql://postgres.xyz:[PASSWORD]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+      - key: DATABASE_URL
+        sync: false
