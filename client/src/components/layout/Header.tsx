@@ -4,12 +4,14 @@ import { Menu, Search, LogOut, User as UserIcon, Shield, ChevronDown, Sun, Moon 
 import { useAuth } from '../../contexts/AuthContext.js';
 import { useTheme } from '../../contexts/ThemeContext.js';
 import { ROLE_LABELS } from '@cozam/shared';
+import { ProfileModal } from '../profile/ProfileModal.js';
 
 export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
   const { profile, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const [search, setSearch] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleSearch = (e: React.FormEvent) => {
@@ -101,7 +103,7 @@ export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
-                    navigate('/perfil');
+                    setProfileModalOpen(true);
                   }}
                   className="w-full px-4 py-2 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
                 >
@@ -125,6 +127,8 @@ export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
           )}
         </div>
       </div>
+
+      <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
     </header>
   );
 }

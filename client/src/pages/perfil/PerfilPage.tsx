@@ -48,10 +48,10 @@ export function PerfilPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
           Meu Perfil Funcional
         </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Identificação do usuário autenticado e segurança de acesso
         </p>
       </div>
@@ -60,34 +60,34 @@ export function PerfilPage() {
       <Card title="Informações Pessoais e Setor">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div>
-            <span className="text-slate-500 block uppercase font-semibold text-2xs">Nome Completo</span>
-            <span className="font-bold text-slate-900 text-sm mt-0.5 block">{profile.full_name}</span>
+            <span className="text-slate-400 dark:text-slate-500 block uppercase font-semibold text-2xs">Nome Completo</span>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5 block">{profile.full_name}</span>
           </div>
           <div>
-            <span className="text-slate-500 block uppercase font-semibold text-2xs">E-mail Institucional</span>
-            <span className="font-medium text-slate-800 mt-0.5 block">{profile.email}</span>
+            <span className="text-slate-400 dark:text-slate-500 block uppercase font-semibold text-2xs">E-mail Institucional</span>
+            <span className="font-medium text-slate-800 dark:text-slate-200 mt-0.5 block">{profile.email}</span>
           </div>
           <div>
-            <span className="text-slate-500 block uppercase font-semibold text-2xs">Função Atribuída</span>
-            <span className="font-semibold text-emerald-800 mt-0.5 block">{ROLE_LABELS[profile.role]}</span>
+            <span className="text-slate-400 dark:text-slate-500 block uppercase font-semibold text-2xs">Função Atribuída</span>
+            <span className="font-semibold text-emerald-800 dark:text-emerald-400 mt-0.5 block">{ROLE_LABELS[profile.role]}</span>
           </div>
           <div>
-            <span className="text-slate-500 block uppercase font-semibold text-2xs">Situação Cadastral</span>
-            <span className="font-semibold text-emerald-700 mt-0.5 flex items-center gap-1">
+            <span className="text-slate-400 dark:text-slate-500 block uppercase font-semibold text-2xs">Situação Cadastral</span>
+            <span className="font-semibold text-emerald-700 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5" /> Conta ativa e autorizada
             </span>
           </div>
         </div>
 
         {/* Permissões ativas */}
-        <div className="mt-6 pt-4 border-t border-slate-100">
-          <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
             Permissões vigentes no seu perfil ({permissions.size})
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-700">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-700 dark:text-slate-300">
             {Array.from(permissions).map((p) => (
               <div key={p} className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" />
                 <span>{PERMISSION_LABELS[p] || p}</span>
               </div>
             ))}
