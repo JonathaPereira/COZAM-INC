@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,9 +10,19 @@ import { Input } from '../../components/ui/Input.js';
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login, loginDev } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const saved = localStorage.getItem('cozam_saved_email');
+    const remember = localStorage.getItem('cozam_remember_me') === 'true';
+    if (remember && saved) {
+      setEmail(saved);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +34,13 @@ export function Login() {
     setLoading(true);
     try {
       await login(email.trim(), password);
+      if (rememberMe) {
+        localStorage.setItem('cozam_remember_me', 'true');
+        localStorage.setItem('cozam_saved_email', email.trim());
+      } else {
+        localStorage.removeItem('cozam_remember_me');
+        localStorage.removeItem('cozam_saved_email');
+      }
       toast.success('Sessão iniciada com sucesso!');
       navigate('/');
     } catch (err: any) {
@@ -131,7 +148,18 @@ export function Login() {
                 required
                 leftIcon={<Lock className="w-4 h-4" />}
               />
-              <div className="flex justify-end mt-1.5">
+              <div className="flex items-center justify-between mt-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-600 dark:text-slate-400">
+                    Lembrar meu acesso
+                  </span>
+                </label>
                 <Link
                   to="/recuperar-senha"
                   className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline"
