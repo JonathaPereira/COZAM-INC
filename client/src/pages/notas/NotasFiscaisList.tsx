@@ -183,8 +183,8 @@ export function NotasFiscaisList() {
 
       {/* Tabela de NFs */}
       <Card className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="w-full text-left text-xs min-w-[850px]">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-2xs">
                 <th className="py-3 px-4 font-semibold">Nº NF</th>

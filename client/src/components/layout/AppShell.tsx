@@ -24,7 +24,7 @@ export function AppShell() {
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-slate-900 z-10 shadow-2xl">
+          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white dark:bg-slate-900 z-10 shadow-2xl">
             <Sidebar onCloseMobile={() => setMobileOpen(false)} />
           </div>
         </div>

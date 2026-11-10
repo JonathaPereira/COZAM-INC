@@ -190,7 +190,7 @@ export function Dashboard() {
       )}
 
       {/* Cartões Financeiros Principais (Valores Confirmados) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <StatCard
           title="Total Financeiro Documentado"
           value={data?.totals.registered || 0}
@@ -430,8 +430,8 @@ export function Dashboard() {
           className="lg:col-span-2"
         >
           {data?.recent_payments && data.recent_payments.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full text-left text-xs min-w-[500px]">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 uppercase tracking-wider text-2xs">
                     <th className="pb-2 font-semibold">Data</th>

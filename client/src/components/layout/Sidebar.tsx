@@ -14,6 +14,7 @@ import {
   Building2,
   Users,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext.js';
 import { BRAND } from '../../config/brand.js';
@@ -95,6 +96,17 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
             </p>
           </div>
         </div>
+
+        {onCloseMobile && (
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="Fechar menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Cartão do setor ativo */}
