@@ -106,6 +106,14 @@ export const api = {
       body: formData,
     });
   },
+
+  delete<T>(path: string, options?: { data?: any }): Promise<T> {
+    return request<T>(path, {
+      method: 'DELETE',
+      headers: options?.data ? { 'Content-Type': 'application/json' } : undefined,
+      body: options?.data ? JSON.stringify(options.data) : undefined,
+    });
+  },
 };
 
 export function getErrorMessage(err: unknown): string {

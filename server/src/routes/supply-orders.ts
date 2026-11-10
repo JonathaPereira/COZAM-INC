@@ -318,3 +318,74 @@ supplyOrdersRouter.post(
     }
   }
 );
+
+// Exclusão Administrativa de Ordem de Fornecimento anexada por engano (apenas admin e sem NFs vinculadas)
+supplyOrdersRouter.delete('/supply-orders/:id', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const pool = getPool();
+
+    // 1. Apenas o perfil administrador pode excluir
+    if (req.user?.role !== 'admin') {
+      throw new AppError('Apenas o Administrador possui permissão para excluir Ordens de Fornecimento.', {
+        code: 'ACESSO_NEGADO',
+        status: 403,
+      });
+    }
+
+    // 2. Busca dados da OF
+    const ofRes = await pool.query('select * from public.supply_orders where id = $1', [id]);
+    if (ofRes.rowCount === 0) {
+      throw new AppError('Ordem de Fornecimento não encontrada.', { code: 'NAO_ENCONTRADO', status: 404 });
+    }
+    const order = ofRes.rows[0];
+
+    // 3. Valida se existem Notas Fiscais vinculadas
+    const invCheck = await pool.query(
+      `select count(*)::int as count from public.invoices where supply_order_id = $1`,
+      [id]
+    );
+    if ((invCheck.rows[0]?.count || 0) > 0) {
+      throw new AppError(
+        'Esta Ordem de Fornecimento possui Notas Fiscais vinculadas. Exclua ou desvincule as notas fiscais antes de excluir a ordem.',
+        { code: 'REGRA_VIOLADA', status: 400 }
+      );
+    }
+
+    const reason = typeof req.body?.reason === 'string' && req.body.reason.trim()
+      ? req.body.reason.trim()
+      : 'Ordem de Fornecimento anexada incorretamente pelo operador.';
+
+    await runInTransaction(
+      { actorId: req.user.id, reason, requestId: req.requestId },
+      async (client) => {
+        // Remove documentos vinculados (PDF da OF)
+        await client.query('delete from public.documents where supply_order_id = $1', [id]);
+        // Exclui a OF
+        await client.query('delete from public.supply_orders where id = $1', [id]);
+
+        // Registra log formal de auditoria
+        await client.query(
+          `insert into public.audit_logs (
+            actor_id, actor_name, actor_role, action, entity_type, entity_id,
+            summary, reason, old_data
+          ) values ($1, $2, $3, 'OF_EXCLUIDA', 'supply_orders', $4, $5, $6, $7)`,
+          [
+            req.user!.id,
+            req.user!.name || 'Administrador',
+            req.user!.role,
+            id,
+            `Exclusão da Ordem de Fornecimento nº ${order.of_number}`,
+            reason,
+            JSON.stringify(order),
+          ]
+        );
+      }
+    );
+
+    res.json({ success: true, message: `Ordem de Fornecimento nº ${order.of_number} excluída com sucesso.` });
+  } catch (err) {
+    next(err);
+  }
+});
+

@@ -94,17 +94,24 @@ export async function runMigrations(pool: DbPool): Promise<void> {
       return;
     }
 
-    // Se a tabela public.profiles já existir no banco (ex: migrações já executadas no Supabase SQL Editor),
-    // registra os arquivos como já aplicados para não tentar recriar tabelas e types existentes.
-    const schemaCheck = await client.query(
-      `select 1 from information_schema.tables where table_schema = 'public' and table_name = 'profiles'`
-    );
-    if (schemaCheck.rowCount > 0) {
-      for (const file of files) {
-        await client.query(`insert into public._migrations (name) values ($1) on conflict (name) do nothing`, [file]);
+    // Se a tabela public.profiles já existir no banco (ex: migrações iniciais executadas no Supabase SQL Editor),
+    // registra apenas as migrações iniciais (001..003) se _migrations estiver vazia.
+    const initialCountRes = await client.query(`select count(*)::int as count from public._migrations`);
+    if (initialCountRes.rows[0]?.count === 0) {
+      const schemaCheck = await client.query(
+        `select 1 from information_schema.tables where table_schema = 'public' and table_name = 'profiles'`
+      );
+      if (schemaCheck.rowCount > 0) {
+        const baseMigrations = [
+          '20261110000001_schema.sql',
+          '20261110000002_business_rules.sql',
+          '20261110000003_security_views_storage.sql',
+        ];
+        for (const baseFile of baseMigrations) {
+          await client.query(`insert into public._migrations (name) values ($1) on conflict (name) do nothing`, [baseFile]);
+        }
+        console.log('[COZAM] Schema inicial preexistente detectado. Migrações base (001-003) sincronizadas.');
       }
-      console.log('[COZAM] Schema existente detectado. Migrações sincronizadas com sucesso.');
-      return;
     }
 
     for (const file of files) {

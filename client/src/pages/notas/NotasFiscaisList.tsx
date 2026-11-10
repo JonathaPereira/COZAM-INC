@@ -12,7 +12,9 @@ import {
   Building2,
   DollarSign,
   Clock,
+  Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '../../lib/api.js';
 import type { InvoiceRow, Paginated, Supplier, Modality } from '@cozam/shared';
 import { formatBRL, formatDateBR } from '@cozam/shared';
@@ -21,6 +23,7 @@ import { Button } from '../../components/ui/Button.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { ModalityBadge, ForwardBadge } from '../../components/ui/Badges.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
+import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 
 export function NotasFiscaisList() {
@@ -32,7 +35,8 @@ export function NotasFiscaisList() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
-  const { can } = useAuth();
+  const [deleteTarget, setDeleteTarget] = useState<InvoiceRow | null>(null);
+  const { profile, can } = useAuth();
   const canWrite = can('invoices.write');
 
   const { data: suppliers } = useQuery({
@@ -40,7 +44,7 @@ export function NotasFiscaisList() {
     queryFn: () => api.get<Supplier[]>('/suppliers'),
   });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['invoices-list', search, supplierId, modality, status, forwardStatus, dateFrom, dateTo, page],
     queryFn: () =>
       api.get<Paginated<InvoiceRow> & { summary: { amount: number; total_paid: number; balance: number } }>(
@@ -58,6 +62,18 @@ export function NotasFiscaisList() {
         }
       ),
   });
+
+  const handleDeleteInvoice = async (reason: string) => {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/invoices/${deleteTarget.id}`, { data: { reason } });
+      toast.success(`Nota Fiscal nº ${deleteTarget.invoice_number} excluída com sucesso.`);
+      setDeleteTarget(null);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir NF.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -219,11 +235,23 @@ export function NotasFiscaisList() {
                       <StatusBadge status={inv.status} />
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <Link to={`/notas/${inv.id}`}>
-                        <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />}>
-                          Abrir
-                        </Button>
-                      </Link>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link to={`/notas/${inv.id}`}>
+                          <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />}>
+                            Abrir
+                          </Button>
+                        </Link>
+                        {profile?.role === 'admin' && inv.total_paid === 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            icon={<Trash2 className="w-3.5 h-3.5" />}
+                            onClick={() => setDeleteTarget(inv)}
+                            title="Excluir NF anexada por engano"
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -238,6 +266,16 @@ export function NotasFiscaisList() {
           </table>
         </div>
       </Card>
+
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteInvoice}
+        title="Excluir Nota Fiscal"
+        itemIdentifier={`NF nº ${deleteTarget?.invoice_number} · ${deleteTarget?.supplier_name}`}
+        description="Tem certeza que deseja excluir esta Nota Fiscal anexada por engano? Esta operação removerá a nota e os arquivos associados. Todos os dados serão registrados na auditoria."
+        confirmButtonText="Sim, excluir NF"
+      />
     </div>
   );
 }

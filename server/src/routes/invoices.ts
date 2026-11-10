@@ -927,3 +927,78 @@ invoicesRouter.post(
     }
   }
 );
+
+// Exclusão Administrativa de Nota Fiscal anexada por engano (apenas admin e com 0 pagamentos)
+invoicesRouter.delete('/invoices/:id', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const pool = getPool();
+
+    // 1. Apenas o perfil administrador pode excluir
+    if (req.user?.role !== 'admin') {
+      throw new AppError('Apenas o Administrador possui permissão para excluir lançamentos.', {
+        code: 'ACESSO_NEGADO',
+        status: 403,
+      });
+    }
+
+    // 2. Busca dados da NF
+    const invRes = await pool.query('select * from public.v_invoices where id = $1', [id]);
+    if (invRes.rowCount === 0) {
+      throw new AppError('Nota Fiscal não encontrada.', { code: 'NAO_ENCONTRADO', status: 404 });
+    }
+    const inv = invRes.rows[0];
+
+    // 3. Valida se existem pagamentos válidos
+    const payCheck = await pool.query(
+      `select count(*)::int as count from public.payments where invoice_id = $1 and status = 'VALIDO'`,
+      [id]
+    );
+    if ((payCheck.rows[0]?.count || 0) > 0 || Number(inv.total_paid || 0) > 0) {
+      throw new AppError(
+        'Esta Nota Fiscal possui pagamentos já registrados e não pode ser excluída. Cancele/estorne os pagamentos antes de tentar excluir.',
+        { code: 'REGRA_VIOLADA', status: 400 }
+      );
+    }
+
+    const reason = typeof req.body?.reason === 'string' && req.body.reason.trim()
+      ? req.body.reason.trim()
+      : 'Lançamento anexado incorretamente pelo operador.';
+
+    await runInTransaction(
+      { actorId: req.user.id, reason, requestId: req.requestId },
+      async (client) => {
+        // Remove pagamentos não efetivados se houver
+        await client.query('delete from public.payments where invoice_id = $1', [id]);
+        // Remove histórico
+        await client.query('delete from public.historical_statuses where invoice_id = $1', [id]);
+        // Remove documentos vinculados (PDF da NF)
+        await client.query('delete from public.documents where invoice_id = $1', [id]);
+        // Exclui a NF
+        await client.query('delete from public.invoices where id = $1', [id]);
+
+        // Registra log formal de auditoria
+        await client.query(
+          `insert into public.audit_logs (
+            actor_id, actor_name, actor_role, action, entity_type, entity_id, invoice_id,
+            summary, reason, old_data
+          ) values ($1, $2, $3, 'NF_EXCLUIDA', 'invoices', $4, null, $5, $6, $7)`,
+          [
+            req.user!.id,
+            req.user!.name || 'Administrador',
+            req.user!.role,
+            id,
+            `Exclusão da NF nº ${inv.invoice_number} (Fornecedor: ${inv.supplier_name || '—'})`,
+            reason,
+            JSON.stringify(inv),
+          ]
+        );
+      }
+    );
+
+    res.json({ success: true, message: `Nota Fiscal nº ${inv.invoice_number} excluída com sucesso.` });
+  } catch (err) {
+    next(err);
+  }
+});
+

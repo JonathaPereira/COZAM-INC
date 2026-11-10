@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Receipt,
@@ -19,6 +19,7 @@ import {
   FileUp,
   MessageSquare,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, getErrorMessage } from '../../lib/api.js';
@@ -36,6 +37,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { ModalityBadge, ForwardBadge } from '../../components/ui/Badges.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { Modal, ConfirmDialog } from '../../components/ui/Modal.js';
+import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
 import { CurrencyInput } from '../../components/ui/CurrencyInput.js';
 import { Input, Textarea } from '../../components/ui/Input.js';
 import { FileDropzone } from '../../components/ui/FileDropzone.js';
@@ -43,6 +45,7 @@ import { useAuth } from '../../contexts/AuthContext.js';
 
 export function NotaFiscalDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { profile, can } = useAuth();
 
   const { data, isLoading, refetch } = useQuery({
@@ -52,6 +55,7 @@ export function NotaFiscalDetail() {
   });
 
   // Modais de ação
+  const [deleteNfOpen, setDeleteNfOpen] = useState(false);
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [payAmount, setPayAmount] = useState<number | null>(null);
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
@@ -270,6 +274,16 @@ export function NotaFiscalDetail() {
     }
   };
 
+  const handleDeleteInvoice = async (reason: string) => {
+    try {
+      await api.delete(`/invoices/${invoice.id}`, { data: { reason } });
+      toast.success(`Nota Fiscal nº ${invoice.invoice_number} excluída definitivamente com sucesso.`);
+      navigate('/notas');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
   const canRegisterPayment = can('payments.register');
   const canForward = can('invoices.forward');
   const canCancelInvoice = can('invoices.cancel');
@@ -352,6 +366,18 @@ export function NotaFiscalDetail() {
               onClick={() => setCancelNfOpen(true)}
             >
               Cancelar NF
+            </Button>
+          )}
+
+          {profile?.role === 'admin' && invoice.total_paid === 0 && (
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<Trash2 className="w-4 h-4" />}
+              onClick={() => setDeleteNfOpen(true)}
+              className="bg-rose-700 hover:bg-rose-800 font-bold shadow-xs"
+            >
+              Excluir NF
             </Button>
           )}
         </div>
@@ -991,6 +1017,16 @@ export function NotaFiscalDetail() {
           </form>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={deleteNfOpen}
+        onClose={() => setDeleteNfOpen(false)}
+        onConfirm={handleDeleteInvoice}
+        title="Excluir Nota Fiscal Definitivamente"
+        itemIdentifier={`NF nº ${invoice.invoice_number} · ${invoice.supplier_name}`}
+        description="Tem certeza que deseja excluir esta Nota Fiscal anexada? Esta operação removerá a nota e os arquivos PDF anexados. Todos os dados serão registrados na auditoria para o setor de Pagamentos."
+        confirmButtonText="Sim, excluir Nota Fiscal"
+      />
     </div>
   );
 }

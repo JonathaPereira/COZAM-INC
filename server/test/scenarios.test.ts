@@ -685,4 +685,106 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     const carneirosInvoices = filterCarneiros.body.data.filter((i: any) => i.id === invRes.body.id);
     expect(carneirosInvoices.length).toBe(0);
   });
+
+  it('Cenário L — Exclusão Administrativa de NF e OF anexadas por engano com auditoria', async () => {
+    // 1. Cadastra processo e fornecedor
+    const procRes = await request(app)
+      .post('/api/processes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        process_number: 'PROC-DEL-2026',
+        year: 2026,
+        description: 'Processo para teste de exclusão administrativa',
+      })
+      .expect(201);
+
+    const supRes = await request(app)
+      .post('/api/suppliers')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Fornecedor Teste Delecao Ltda',
+        cnpj: '11.222.333/0001-99',
+      })
+      .expect(201);
+
+    // 2. Cadastra OF
+    const ofRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('process_id', procRes.body.id)
+      .field('supplier_id', supRes.body.id)
+      .field('of_number', 'OF-MISTAKE-999')
+      .field('issue_date', '2026-06-01')
+      .attach('file', Buffer.from('%PDF-1.4 OF'), 'of-errada.pdf')
+      .expect(201);
+
+    // 3. Cadastra NF vinculada
+    const nfRes = await request(app)
+      .post('/api/invoices')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('supply_order_id', ofRes.body.id)
+      .field('invoice_number', 'NF-MISTAKE-999')
+      .field('issue_date', '2026-06-02')
+      .field('amount', '5000')
+      .field('modality', 'FUMIP')
+      .attach('file', Buffer.from('%PDF-1.4 NF'), 'nf-errada.pdf')
+      .expect(201);
+
+    const invoiceId = nfRes.body.id;
+    const supplyOrderId = ofRes.body.id;
+
+    // 4. Operador de pagamentos tenta excluir a NF -> 403 Forbidden
+    await request(app)
+      .delete(`/api/invoices/${invoiceId}`)
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .send({ reason: 'Tentativa indevida' })
+      .expect(403);
+
+    // 5. Admin tenta excluir a OF antes da NF -> 400 (possui NF vinculada)
+    await request(app)
+      .delete(`/api/supply-orders/${supplyOrderId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reason: 'Tentando apagar OF com NF' })
+      .expect(400);
+
+    // 6. Admin exclui a NF com justificativa
+    const delNfRes = await request(app)
+      .delete(`/api/invoices/${invoiceId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reason: 'Anexada por engano no processo errado' })
+      .expect(200);
+
+    expect(delNfRes.body.success).toBe(true);
+
+    // 7. NF não existe mais
+    await request(app)
+      .get(`/api/invoices/${invoiceId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
+
+    // 8. Admin exclui a OF com justificativa
+    const delOfRes = await request(app)
+      .delete(`/api/supply-orders/${supplyOrderId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reason: 'OF gerada em duplicidade' })
+      .expect(200);
+
+    expect(delOfRes.body.success).toBe(true);
+
+    // 9. OF não existe mais
+    await request(app)
+      .get(`/api/supply-orders/${supplyOrderId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
+
+    // 10. Verifica se os registros de auditoria foram gerados
+    const auditRes = await request(app)
+      .get('/api/audit?action=NF_EXCLUIDA')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const nfAudit = auditRes.body.data.find((a: any) => a.action === 'NF_EXCLUIDA' && a.entity_id === invoiceId);
+    expect(nfAudit).toBeDefined();
+    expect(nfAudit.reason).toContain('Anexada por engano');
+  });
 });

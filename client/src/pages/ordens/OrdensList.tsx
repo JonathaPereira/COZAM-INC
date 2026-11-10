@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Plus, Search, Building2, Calendar, Eye, ArrowLeft } from 'lucide-react';
+import { FileText, Plus, Search, Building2, Calendar, Eye, ArrowLeft, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api.js';
 import type { SupplyOrderRow } from '@cozam/shared';
@@ -11,17 +11,31 @@ import { Button } from '../../components/ui/Button.js';
 import { Textarea } from '../../components/ui/Input.js';
 import { FileDropzone } from '../../components/ui/FileDropzone.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
+import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 
 export function OrdensList() {
   const [search, setSearch] = useState('');
-  const { can } = useAuth();
+  const [deleteTarget, setDeleteTarget] = useState<SupplyOrderRow | null>(null);
+  const { profile, can } = useAuth();
   const canWrite = can('supply_orders.write');
 
-  const { data: ofs, isLoading } = useQuery({
+  const { data: ofs, isLoading, refetch } = useQuery({
     queryKey: ['supply-orders', search],
     queryFn: () => api.get<SupplyOrderRow[]>('/supply-orders', { search }),
   });
+
+  const handleDeleteOf = async (reason: string) => {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/supply-orders/${deleteTarget.id}`, { data: { reason } });
+      toast.success(`Ordem de Fornecimento nº ${deleteTarget.of_number} excluída com sucesso.`);
+      setDeleteTarget(null);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir OF.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -99,11 +113,23 @@ export function OrdensList() {
                       />
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <Link to={`/ordens/${o.id}`}>
-                        <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />}>
-                          Ver
-                        </Button>
-                      </Link>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link to={`/ordens/${o.id}`}>
+                          <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />}>
+                            Ver
+                          </Button>
+                        </Link>
+                        {profile?.role === 'admin' && o.invoices_count === 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            icon={<Trash2 className="w-3.5 h-3.5" />}
+                            onClick={() => setDeleteTarget(o)}
+                            title="Excluir OF anexada por engano"
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -118,13 +144,26 @@ export function OrdensList() {
           </table>
         </div>
       </Card>
+
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteOf}
+        title="Excluir Ordem de Fornecimento"
+        itemIdentifier={`OF nº ${deleteTarget?.of_number} · ${deleteTarget?.supplier_name}`}
+        description="Tem certeza que deseja excluir esta Ordem de Fornecimento anexada por engano? Esta operação removerá a OF e os arquivos associados. Todos os dados serão registrados na auditoria."
+        confirmButtonText="Sim, excluir OF"
+      />
     </div>
   );
 }
 
 export function OrdemDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { profile } = useAuth();
   const [replaceModalOpen, setReplaceModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
   const [replaceReason, setReplaceReason] = useState('');
   const [replacing, setReplacing] = useState(false);
@@ -139,6 +178,16 @@ export function OrdemDetail() {
       }>(`/supply-orders/${id}`),
     enabled: Boolean(id),
   });
+
+  const handleDeleteDetailOf = async (reason: string) => {
+    try {
+      await api.delete(`/supply-orders/${id}`, { data: { reason } });
+      toast.success('Ordem de Fornecimento excluída com sucesso.');
+      navigate('/ordens');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir OF.');
+    }
+  };
 
   const handleReplaceDocument = async () => {
     if (!replaceFile) return;
@@ -180,20 +229,34 @@ export function OrdemDetail() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
               OF nº {supply_order.of_number}
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Fornecedor: <span className="font-semibold text-slate-800">{supply_order.supplier_name}</span> · Processo: {supply_order.process_number}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Fornecedor: <span className="font-semibold text-slate-800 dark:text-slate-200">{supply_order.supplier_name}</span> · Processo: {supply_order.process_number}
             </p>
           </div>
         </div>
 
-        <Link to="/lancamento">
-          <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}>
-            Nova Nota Fiscal para esta OF
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          {profile?.role === 'admin' && invoices.length === 0 && (
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<Trash2 className="w-4 h-4" />}
+              onClick={() => setDeleteModalOpen(true)}
+              className="bg-rose-700 hover:bg-rose-800 font-bold shadow-xs"
+            >
+              Excluir OF
+            </Button>
+          )}
+
+          <Link to="/lancamento">
+            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}>
+              Nova Nota Fiscal para esta OF
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Cartão de Arquivo da OF */}
@@ -326,6 +389,16 @@ export function OrdemDetail() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeleteDetailOf}
+        title="Excluir Ordem de Fornecimento"
+        itemIdentifier={`OF nº ${supply_order.of_number} · ${supply_order.supplier_name}`}
+        description="Tem certeza que deseja excluir esta Ordem de Fornecimento anexada por engano? Esta operação removerá a OF e os arquivos associados. Todos os dados serão registrados na auditoria."
+        confirmButtonText="Sim, excluir OF"
+      />
     </div>
   );
 }
