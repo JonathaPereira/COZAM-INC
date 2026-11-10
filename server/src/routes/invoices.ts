@@ -985,7 +985,7 @@ invoicesRouter.delete('/invoices/:id', authenticate, async (req, res, next) => {
           ) values ($1, $2, $3, 'NF_EXCLUIDA', 'invoices', $4, null, $5, $6, $7)`,
           [
             req.user!.id,
-            req.user!.name || 'Administrador',
+            req.user!.full_name || 'Administrador',
             req.user!.role,
             id,
             `Exclusão da NF nº ${inv.invoice_number} (Fornecedor: ${inv.supplier_name || '—'})`,

@@ -372,7 +372,7 @@ supplyOrdersRouter.delete('/supply-orders/:id', authenticate, async (req, res, n
           ) values ($1, $2, $3, 'OF_EXCLUIDA', 'supply_orders', $4, $5, $6, $7)`,
           [
             req.user!.id,
-            req.user!.name || 'Administrador',
+            req.user!.full_name || 'Administrador',
             req.user!.role,
             id,
             `Exclusão da Ordem de Fornecimento nº ${order.of_number}`,
