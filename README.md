@@ -33,6 +33,12 @@ O sistema elimina a tramitação física de papéis entre os setores de **Compra
   - Dashboard moderno com indicadores em tempo real e gráficos animados via Recharts.
   - 10 relatórios analíticos oficiais com exportação direta para **PDF** (layout A4 com cabeçalho institucional) e **Excel** (células monetárias formatadas).
 
+- **Identidade Visual & Modo Escuro (Dark Mode):**
+  - Alternador de tema no cabeçalho com suporte a **Modo Claro**, **Modo Escuro** e **Preferência do Sistema**.
+  - Persistência automática em `localStorage` e paleta adaptativa em todas as telas, cards, modais e tabelas.
+  - Gráficos gerenciais Recharts adaptados dinamicamente ao tema para legibilidade ideal.
+  - Espaço dedicado para o logotipo institucional oficial do COZAM nas variantes clara e escura.
+
 ---
 
 ## Arquitetura Tecnológica
@@ -41,6 +47,7 @@ O sistema elimina a tramitação física de papéis entre os setores de **Compra
 - **Backend:** Node.js, Express, PostgreSQL / Supabase, Supabase Auth & Storage.
 - **Infraestrutura:** Preparado para deploy no **Render** como Web Service único via `render.yaml`.
 - **Banco de Dados & RLS:** Políticas de segurança no nível de linha (RLS), triggers de cálculo automático e bloqueio de concorrência (`FOR UPDATE`).
+- **Guia do Banco de Dados & Logins:** Consulte o [Guia Completo de Integração de Banco e Criação de Logins](docs/GUIA_BANCO_E_LOGINS.md).
 
 ---
 
@@ -96,6 +103,8 @@ npm run create-admin -- --email compras@cozam.al.gov.br --password "SuaSenha@202
 
 ---
 
-## Implantação no Render
+## Implantação e Banco de Dados
 
-Consulte o guia completo em [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) para o passo a passo de configuração do Supabase e deploy no Render.
+Consulte os guias completos:
+- **[Guia Oficial de Banco de Dados & Criação de Logins](docs/GUIA_BANCO_E_LOGINS.md):** Criação do projeto no Supabase, execução ordenada das migrações SQL, configuração do bucket `documentos`, criação dos logins reais e mapeamento de variáveis de ambiente.
+- **[Guia de Deploy no Render](docs/DEPLOYMENT.md):** Passo a passo de configuração do Web Service único no Render via `render.yaml`.

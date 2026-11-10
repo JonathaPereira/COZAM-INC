@@ -72,9 +72,9 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200/90 flex flex-col h-full select-none">
+    <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200/90 dark:border-slate-800 flex flex-col h-full select-none transition-colors">
       {/* Cabeçalho da marca */}
-      <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img
             src={BRAND.logos.icon}
@@ -83,14 +83,14 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
           />
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-slate-900 text-lg tracking-tight font-heading">
+              <span className="font-extrabold text-slate-900 dark:text-slate-100 text-lg tracking-tight font-heading">
                 {BRAND.acronym}
               </span>
-              <span className="text-2xs font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+              <span className="text-2xs font-semibold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
                 PROD
               </span>
             </div>
-            <p className="text-2xs text-slate-500 font-medium truncate max-w-[140px]">
+            <p className="text-2xs text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]">
               {BRAND.shortSystemName}
             </p>
           </div>
@@ -99,12 +99,12 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
 
       {/* Cartão do setor ativo */}
       {profile && (
-        <div className="px-4 py-3 mx-3 my-2 rounded-xl bg-slate-50 border border-slate-200/70">
-          <p className="text-2xs font-semibold text-slate-500 uppercase tracking-wider">Acesso autorizado</p>
-          <p className="text-xs font-bold text-slate-800 mt-0.5 truncate">
+        <div className="px-4 py-3 mx-3 my-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+          <p className="text-2xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Acesso autorizado</p>
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 mt-0.5 truncate">
             {ROLE_LABELS[profile.role]}
           </p>
-          <p className="text-2xs text-slate-500 truncate mt-0.5">{profile.full_name}</p>
+          <p className="text-2xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{profile.full_name}</p>
         </div>
       )}
 
@@ -116,7 +116,7 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
 
           return (
             <div key={group.title}>
-              <p className="px-3 text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+              <p className="px-3 text-2xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
                 {group.title}
               </p>
               <nav className="space-y-0.5">
@@ -133,17 +133,17 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
                       onClick={onCloseMobile}
                       className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                         isActive
-                          ? 'bg-emerald-50 text-emerald-800 font-semibold shadow-2xs border border-emerald-200/50'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 font-semibold shadow-2xs border border-emerald-200/50 dark:border-emerald-800/40'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-800/60'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <span className={isActive ? 'text-emerald-700' : 'text-slate-400'}>
+                        <span className={isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}>
                           {item.icon}
                         </span>
                         <span>{item.label}</span>
                       </div>
-                      {isActive && <ChevronRight className="w-3.5 h-3.5 text-emerald-600" />}
+                      {isActive && <ChevronRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
                     </NavLink>
                   );
                 })}
@@ -154,8 +154,8 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
       </div>
 
       {/* Rodapé da sidebar */}
-      <div className="p-3 border-t border-slate-100 text-center">
-        <p className="text-2xs text-slate-400">
+      <div className="p-3 border-t border-slate-100 dark:border-slate-800 text-center">
+        <p className="text-2xs text-slate-400 dark:text-slate-500">
           Consórcio Intermunicipal COZAM · 2026
         </p>
       </div>

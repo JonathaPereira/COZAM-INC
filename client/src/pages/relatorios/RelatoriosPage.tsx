@@ -92,10 +92,10 @@ export function RelatoriosPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
             Relatórios Administrativos & Financeiros
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Demonstrativos consolidados com exportação oficial para PDF e Excel
           </p>
         </div>
@@ -105,7 +105,7 @@ export function RelatoriosPage() {
             <Button
               variant="outline"
               size="sm"
-              icon={<Download className="w-4 h-4 text-emerald-700" />}
+              icon={<Download className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />}
               onClick={handleExportPdf}
             >
               Exportar PDF
@@ -113,7 +113,7 @@ export function RelatoriosPage() {
             <Button
               variant="outline"
               size="sm"
-              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-700" />}
+              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />}
               onClick={handleExportExcel}
             >
               Exportar Excel
@@ -136,12 +136,12 @@ export function RelatoriosPage() {
               }}
               className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                 isSelected
-                  ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600/20 text-emerald-950 font-bold shadow-xs'
-                  : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50/70'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 dark:border-emerald-500 ring-2 ring-emerald-600/20 text-emerald-950 dark:text-emerald-200 font-bold shadow-xs'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50/70 dark:hover:bg-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-2">
-                <BarChart3 className={`w-4 h-4 shrink-0 ${isSelected ? 'text-emerald-700' : 'text-slate-400'}`} />
+                <BarChart3 className={`w-4 h-4 shrink-0 ${isSelected ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`} />
                 <span className="text-xs leading-snug line-clamp-2">{REPORT_LABELS[type]}</span>
               </div>
             </button>
@@ -150,16 +150,16 @@ export function RelatoriosPage() {
       </div>
 
       {/* Painel de Filtros do Relatório */}
-      <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
         {selectedType === 'historico_nf' ? (
           <div className="sm:col-span-3">
-            <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">
+            <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
               Selecione a Nota Fiscal <span className="text-rose-500">*</span>
             </label>
             <select
               value={invoiceId}
               onChange={(e) => setInvoiceId(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white"
+              className="w-full text-xs p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             >
               <option value="">Selecione uma Nota Fiscal...</option>
               {invoicesList?.data.map((inv) => (
@@ -172,29 +172,29 @@ export function RelatoriosPage() {
         ) : (
           <>
             <div>
-              <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Período inicial</label>
+              <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Período inicial</label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full text-xs p-2 rounded-lg border border-slate-200"
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               />
             </div>
             <div>
-              <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Período final</label>
+              <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Período final</label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full text-xs p-2 rounded-lg border border-slate-200"
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               />
             </div>
             <div>
-              <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Fornecedor</label>
+              <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Fornecedor</label>
               <select
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               >
                 <option value="">Todos os fornecedores</option>
                 {suppliers?.map((s) => (
@@ -203,11 +203,11 @@ export function RelatoriosPage() {
               </select>
             </div>
             <div>
-              <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Modalidade</label>
+              <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Modalidade</label>
               <select
                 value={modality}
                 onChange={(e) => setModality(e.target.value)}
-                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               >
                 <option value="">Todas</option>
                 <option value="FUMIP">FUMIP</option>
@@ -229,15 +229,15 @@ export function RelatoriosPage() {
         className="p-0"
       >
         {isLoading || isFetching ? (
-          <div className="p-12 flex flex-col items-center justify-center gap-2 text-slate-500">
-            <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
+          <div className="p-12 flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
+            <Loader2 className="w-6 h-6 animate-spin text-emerald-700 dark:text-emerald-400" />
             <p className="text-xs">Consolidando dados do relatório...</p>
           </div>
         ) : report && report.rows.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 uppercase tracking-wider text-2xs">
+                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-2xs">
                   {report.columns.map((c) => (
                     <th
                       key={c.key}
@@ -250,9 +250,9 @@ export function RelatoriosPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {report.rows.map((row, rIdx) => (
-                  <tr key={rIdx} className="hover:bg-slate-50/70 transition-colors">
+                  <tr key={rIdx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                     {report.columns.map((c) => {
                       const v = row[c.key];
                       return (
@@ -260,10 +260,10 @@ export function RelatoriosPage() {
                           key={c.key}
                           className={`py-2.5 px-4 ${
                             c.type === 'money'
-                              ? 'text-right font-medium tabular-nums text-slate-900'
+                              ? 'text-right font-medium tabular-nums text-slate-900 dark:text-slate-100'
                               : c.type === 'number'
-                              ? 'text-right tabular-nums text-slate-700'
-                              : 'text-slate-700'
+                              ? 'text-right tabular-nums text-slate-700 dark:text-slate-300'
+                              : 'text-slate-700 dark:text-slate-300'
                           }`}
                         >
                           {v === null || v === undefined
@@ -283,7 +283,7 @@ export function RelatoriosPage() {
               </tbody>
               {report.totals && Object.keys(report.totals).length > 0 && (
                 <tfoot>
-                  <tr className="border-t-2 border-slate-200 bg-slate-50/90 font-bold text-xs text-slate-900">
+                  <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-800/80 font-bold text-xs text-slate-900 dark:text-slate-100">
                     {report.columns.map((c, idx) => (
                       <td
                         key={c.key}

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --brand-green-vivid: #6be000;
@@ -15,6 +17,12 @@
     font-family: var(--font-sans);
     color: #1e293b;
     background-color: #f8fafc;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .dark body {
+    color: #f1f5f9;
+    background-color: #0b1120;
   }
 
   h1, h2, h3, h4, h5, h6 {

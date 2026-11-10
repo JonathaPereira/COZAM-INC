@@ -27,10 +27,10 @@ export function OrdensList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
             Ordens de Fornecimento (OF)
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Controle do setor de Compras — cada OF pertence a apenas um fornecedor
           </p>
         </div>
@@ -51,7 +51,7 @@ export function OrdensList() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Pesquisar nº de OF, fornecedor ou processo..."
-          className="w-full bg-white text-xs text-slate-800 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-600 focus:outline-none"
+          className="w-full bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-100 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-600 focus:outline-none"
         />
       </div>
 
@@ -59,7 +59,7 @@ export function OrdensList() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 uppercase tracking-wider text-2xs">
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-2xs">
                 <th className="py-3 px-4 font-semibold">Número da OF</th>
                 <th className="py-3 px-4 font-semibold">Fornecedor</th>
                 <th className="py-3 px-4 font-semibold">Processo Adm.</th>
@@ -71,23 +71,23 @@ export function OrdensList() {
                 <th className="py-3 px-4 font-semibold text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {ofs && ofs.length > 0 ? (
                 ofs.map((o) => (
-                  <tr key={o.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900">{o.of_number}</td>
+                  <tr key={o.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">{o.of_number}</td>
                     <td className="py-3 px-4">
-                      <span className="font-semibold text-slate-800">{o.supplier_name}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{o.supplier_name}</span>
                     </td>
-                    <td className="py-3 px-4 text-slate-600 font-medium">{o.process_number}</td>
-                    <td className="py-3 px-4 text-slate-600">{formatDateBR(o.issue_date)}</td>
-                    <td className="py-3 px-4 text-right tabular-nums text-slate-700">
+                    <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-medium">{o.process_number}</td>
+                    <td className="py-3 px-4 text-slate-600 dark:text-slate-400">{formatDateBR(o.issue_date)}</td>
+                    <td className="py-3 px-4 text-right tabular-nums text-slate-700 dark:text-slate-300">
                       {formatBRL(o.total_value)}
                     </td>
-                    <td className="py-3 px-4 text-center font-bold text-slate-800">
+                    <td className="py-3 px-4 text-center font-bold text-slate-800 dark:text-slate-200">
                       {o.invoices_count}
                     </td>
-                    <td className="py-3 px-4 text-right font-bold text-emerald-700 tabular-nums">
+                    <td className="py-3 px-4 text-right font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
                       {formatBRL(o.invoices_total)}
                     </td>
                     <td className="py-3 px-4 text-center">

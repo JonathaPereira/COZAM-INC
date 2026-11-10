@@ -149,10 +149,10 @@ export function PendenciasHistoricas() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
             Controle de Pendências Históricas
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Levantamento progressivo de notas antigas e confirmação de saldos existentes
           </p>
         </div>
@@ -172,15 +172,15 @@ export function PendenciasHistoricas() {
       </div>
 
       {/* Orientações Oficiais da Seção 11 */}
-      <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-2">
-        <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
-          <HelpCircle className="w-4 h-4 text-emerald-700" />
+      <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-xl space-y-2">
+        <h4 className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider flex items-center gap-1.5">
+          <HelpCircle className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
           Diretrizes de Cadastramento Histórico
         </h4>
-        <p className="text-xs text-emerald-900 leading-relaxed">
+        <p className="text-xs text-emerald-900 dark:text-emerald-300 leading-relaxed">
           O cadastro de notas antigas é <span className="font-bold">opcional e progressivo</span>. Não é necessário cadastrar todas as pendências para que o sistema entre em produção.
         </p>
-        <ul className="text-xs text-emerald-800 space-y-1 list-disc list-inside">
+        <ul className="text-xs text-emerald-800 dark:text-emerald-400 space-y-1 list-disc list-inside">
           <li><strong>Sem Informação / Não Verificada:</strong> notas cuja situação física ainda não foi auditada. Ficam identificadas em cinza e não são presumidas como pagas.</li>
           <li><strong>Pendente:</strong> notas verificadas sem nenhum registro de pagamento.</li>
           <li><strong>Parcialmente / Totalmente Paga:</strong> requer informação expressa do responsável que confirmou os dados. Nunca invente datas ou valores.</li>
@@ -192,7 +192,7 @@ export function PendenciasHistoricas() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-2xs">
+              <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 uppercase tracking-wider text-2xs">
                 <th className="pb-2 font-semibold">Nº da NF</th>
                 <th className="pb-2 font-semibold">Fornecedor</th>
                 <th className="pb-2 font-semibold">Emissão</th>

@@ -190,16 +190,16 @@ export function LancamentoWizard() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
           Novo Lançamento Integrado
         </h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Cadastre o processo, a Ordem de Fornecimento e a Nota Fiscal em fluxo contínuo
         </p>
       </div>
 
       {/* Indicador de etapas */}
-      <div className="grid grid-cols-4 gap-2 border-b border-slate-200 pb-4">
+      <div className="grid grid-cols-4 gap-2 border-b border-slate-200 dark:border-slate-800 pb-4">
         {[
           { num: 1, title: 'Processo Adm.', icon: <FolderKanban className="w-4 h-4" /> },
           { num: 2, title: 'Ordem Fornecimento', icon: <FileText className="w-4 h-4" /> },
@@ -210,10 +210,10 @@ export function LancamentoWizard() {
             key={s.num}
             className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${
               step === s.num
-                ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-200'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800'
                 : step > s.num
-                ? 'text-emerald-700 bg-white'
-                : 'text-slate-400 bg-white'
+                ? 'text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900'
+                : 'text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900'
             }`}
           >
             <div
@@ -221,8 +221,8 @@ export function LancamentoWizard() {
                 step === s.num
                   ? 'bg-emerald-700 text-white'
                   : step > s.num
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : 'bg-slate-100 text-slate-500'
+                  ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
               }`}
             >
               {step > s.num ? '✓' : s.num}
@@ -237,7 +237,7 @@ export function LancamentoWizard() {
         <Card title="Etapa 1: Processo Administrativo">
           <div className="space-y-4">
             <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-700">
+              <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-700 dark:text-slate-300">
                 <input
                   type="radio"
                   name="processMode"
@@ -247,7 +247,7 @@ export function LancamentoWizard() {
                 />
                 Vincular a processo já cadastrado
               </label>
-              <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-700">
+              <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-700 dark:text-slate-300">
                 <input
                   type="radio"
                   name="processMode"
@@ -274,7 +274,7 @@ export function LancamentoWizard() {
                 ))}
               </Select>
             ) : (
-              <div className="space-y-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
                     <Input
@@ -335,7 +335,7 @@ export function LancamentoWizard() {
           <div className="space-y-4">
             {processMode === 'existing' && existingOfs && existingOfs.length > 0 && (
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-700">
+                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-700 dark:text-slate-300">
                   <input
                     type="radio"
                     name="ofMode"
@@ -345,7 +345,7 @@ export function LancamentoWizard() {
                   />
                   Cadastrar nova Ordem de Fornecimento
                 </label>
-                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-700">
+                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-700 dark:text-slate-300">
                   <input
                     type="radio"
                     name="ofMode"
@@ -376,13 +376,13 @@ export function LancamentoWizard() {
               <div className="space-y-3">
                 {/* Seleção de Fornecedor: MZ Bernardi primeiro, sem seleção automática */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                     Fornecedor <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={supplierId}
                     onChange={(e) => setSupplierId(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    className="block w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                     required
                   >
                     <option value="">Selecione o fornecedor (obrigatório)...</option>
@@ -392,7 +392,7 @@ export function LancamentoWizard() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Regra fundamental: cada Ordem de Fornecimento pertence a um único fornecedor.
                   </p>
                 </div>
@@ -528,7 +528,7 @@ export function LancamentoWizard() {
 
             {/* Modalidade de Pagamento: Cards de seleção única */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                 Modalidade de Pagamento <span className="text-rose-500">*</span>
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -537,12 +537,12 @@ export function LancamentoWizard() {
                   onClick={() => setModality('FUMIP')}
                   className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                     modality === 'FUMIP'
-                      ? 'bg-blue-50/70 border-blue-500 ring-2 ring-blue-500/30'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/30'
+                      : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                   }`}
                 >
-                  <p className="text-sm font-bold text-slate-900">FUMIP</p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">FUMIP</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Fundo Municipal de Iluminação Pública e custeios vinculados
                   </p>
                 </button>
@@ -552,12 +552,12 @@ export function LancamentoWizard() {
                   onClick={() => setModality('COMPRA_COMPARTILHADA')}
                   className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                     modality === 'COMPRA_COMPARTILHADA'
-                      ? 'bg-purple-50/70 border-purple-500 ring-2 ring-purple-500/30'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-purple-50/70 dark:bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/30'
+                      : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                   }`}
                 >
-                  <p className="text-sm font-bold text-slate-900">Compra Compartilhada</p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Compra Compartilhada</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Aquisição em lote conjunto entre os municípios consorciados
                   </p>
                 </button>
@@ -628,63 +628,63 @@ export function LancamentoWizard() {
       {step === 4 && (
         <Card title="Etapa 4: Conferência e Encaminhamento">
           <div className="space-y-6">
-            <div className="p-4 bg-emerald-50/50 border border-emerald-200/80 rounded-xl space-y-3">
-              <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+            <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl space-y-3">
+              <h4 className="text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
                 Resumo do Lançamento
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                 <div>
-                  <span className="text-slate-500 block">Fornecedor</span>
-                  <span className="font-bold text-slate-900">{currentSupplier?.name}</span>
+                  <span className="text-slate-500 dark:text-slate-400 block">Fornecedor</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">{currentSupplier?.name}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Ordem de Fornecimento</span>
-                  <span className="font-bold text-slate-900">
+                  <span className="text-slate-500 dark:text-slate-400 block">Ordem de Fornecimento</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">
                     {ofMode === 'new' ? ofNumber : 'OF Vinculada'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Nota Fiscal nº</span>
-                  <span className="font-bold text-slate-900">{nfNumber}</span>
+                  <span className="text-slate-500 dark:text-slate-400 block">Nota Fiscal nº</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">{nfNumber}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Valor da NF</span>
-                  <span className="font-bold text-emerald-700 tabular-nums text-sm">
+                  <span className="text-slate-500 dark:text-slate-400 block">Valor da NF</span>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400 tabular-nums text-sm">
                     {formatBRL(nfAmount)}
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs pt-2 border-t border-emerald-200/60">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60">
                 <div>
-                  <span className="text-slate-500 block">Modalidade</span>
-                  <span className="font-semibold text-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400 block">Modalidade</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {modality ? MODALITY_LABELS[modality] : '—'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Data de Emissão</span>
-                  <span className="font-semibold text-slate-800">{formatDateBR(nfDate)}</span>
+                  <span className="text-slate-500 dark:text-slate-400 block">Data de Emissão</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{formatDateBR(nfDate)}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Documentos</span>
-                  <span className="font-semibold text-emerald-800">
+                  <span className="text-slate-500 dark:text-slate-400 block">Documentos</span>
+                  <span className="font-semibold text-emerald-800 dark:text-emerald-300">
                     {ofFile ? 'OF (PDF) e ' : ''}NF (PDF) anexados
                   </span>
                 </div>
               </div>
 
               {nfNotes && (
-                <div className="text-xs pt-2 border-t border-emerald-200/60">
-                  <span className="text-slate-500 block">Comentário de Compras</span>
-                  <span className="italic text-slate-700">"{nfNotes}"</span>
+                <div className="text-xs pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60">
+                  <span className="text-slate-500 dark:text-slate-400 block">Comentário de Compras</span>
+                  <span className="italic text-slate-700 dark:text-slate-300">"{nfNotes}"</span>
                 </div>
               )}
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <h5 className="text-xs font-bold text-slate-800">O que acontece ao encaminhar?</h5>
-              <ul className="text-xs text-slate-600 space-y-1 mt-1 list-disc list-inside">
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+              <h5 className="text-xs font-bold text-slate-800 dark:text-slate-200">O que acontece ao encaminhar?</h5>
+              <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1 mt-1 list-disc list-inside">
                 <li>O registro entrará imediatamente na fila de trabalho do setor de Pagamentos.</li>
                 <li>Os arquivos da OF e da NF ficarão disponíveis para download e impressão direta.</li>
                 <li>O status do encaminhamento será gravado com data, hora e responsável no histórico de auditoria.</li>

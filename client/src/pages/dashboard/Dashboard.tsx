@@ -36,8 +36,10 @@ import { StatCard, Card, ProgressBar } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { ModalityBadge } from '../../components/ui/Badges.js';
+import { useTheme } from '../../contexts/ThemeContext.js';
 
 export function Dashboard() {
+  const { isDark } = useTheme();
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [supplierId, setSupplierId] = useState('');
@@ -80,22 +82,28 @@ export function Dashboard() {
     greenLight: '#6BE000',
     orange: '#EA580C',
     amber: '#D97706',
-    slate: '#64748B',
+    slate: isDark ? '#94A3B8' : '#64748B',
     blue: '#2563EB',
     purple: '#7C3AED',
   };
 
-  const supplierColors = ['#258900', '#2563EB', '#D97706'];
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#0f172a' : '#ffffff',
+    borderColor: isDark ? '#334155' : '#e2e8f0',
+    color: isDark ? '#f8fafc' : '#0f172a',
+    borderRadius: '0.75rem',
+    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+  };
 
   return (
     <div className="space-y-6">
       {/* Cabeçalho da página e botão de filtro */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
             Painel Geral de Controle
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Indicadores gerenciais, fluxo documental e controle financeiro do consórcio
           </p>
         </div>
@@ -119,31 +127,31 @@ export function Dashboard() {
 
       {/* Painel colapsável de filtros avançados */}
       {filtersOpen && (
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 animate-in fade-in duration-150">
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 animate-in fade-in duration-150">
           <div>
-            <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">A partir de</label>
+            <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">A partir de</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-slate-200"
+              className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             />
           </div>
           <div>
-            <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Até</label>
+            <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Até</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-slate-200"
+              className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             />
           </div>
           <div>
-            <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Fornecedor</label>
+            <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Fornecedor</label>
             <select
               value={supplierId}
               onChange={(e) => setSupplierId(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+              className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             >
               <option value="">Todos os fornecedores</option>
               {suppliers?.map((s) => (
@@ -152,11 +160,11 @@ export function Dashboard() {
             </select>
           </div>
           <div>
-            <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Modalidade</label>
+            <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Modalidade</label>
             <select
               value={modality}
               onChange={(e) => setModality(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+              className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             >
               <option value="">Todas</option>
               <option value="FUMIP">FUMIP</option>
@@ -164,11 +172,11 @@ export function Dashboard() {
             </select>
           </div>
           <div>
-            <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Situação</label>
+            <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Situação</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+              className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             >
               <option value="">Todas as situações</option>
               <option value="AGUARDANDO_PAGAMENTO">Aguardando Pagamento</option>
@@ -209,25 +217,25 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Cartão Isolado para Pendências Não Verificadas (Conforme Seção 12: nunca misturar) */}
+      {/* Cartão Isolado para Pendências Não Verificadas */}
       {(data?.totals.unverified_count || 0) > 0 && (
-        <div className="p-4 rounded-xl bg-slate-100 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-slate-200 text-slate-700">
+            <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
               <HelpCircle className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-800">
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 {data?.totals.unverified_count} Nota(s) com Situação "Sem Informação / Não Verificada"
               </p>
-              <p className="text-2xs text-slate-600 mt-0.5">
+              <p className="text-2xs text-slate-600 dark:text-slate-400 mt-0.5">
                 Valores estimados informados em levantamentos preliminares ({formatBRL(data?.totals.unverified_known_amount || 0)}) não estão somados aos totais confirmados acima.
               </p>
             </div>
           </div>
           <a
             href="/pendencias"
-            className="text-xs font-semibold text-emerald-800 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs hover:bg-slate-50 shrink-0"
+            className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700 shrink-0"
           >
             Verificar Pendências
           </a>
@@ -289,12 +297,14 @@ export function Dashboard() {
                       <stop offset="95%" stopColor={COLORS.greenPrimary} stopOpacity={0.05} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  <XAxis dataKey="month" stroke={isDark ? '#64748b' : '#94a3b8'} tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#64748b' }} />
                   <YAxis
+                    stroke={isDark ? '#64748b' : '#94a3b8'}
                     tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`}
-                    tick={{ fontSize: 11 }}
+                    tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#64748b' }}
                   />
                   <Tooltip
+                    contentStyle={tooltipStyle}
                     formatter={(v: any) => [formatBRL(Number(v)), 'Valor Pago']}
                     labelFormatter={(label) => `Mês: ${label}`}
                   />
@@ -325,21 +335,24 @@ export function Dashboard() {
             {data?.by_supplier && data.by_supplier.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.by_supplier} margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <XAxis dataKey="name" stroke={isDark ? '#64748b' : '#94a3b8'} tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#64748b' }} />
                   <YAxis
+                    stroke={isDark ? '#64748b' : '#94a3b8'}
                     tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`}
-                    tick={{ fontSize: 11 }}
+                    tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#64748b' }}
                   />
                   <Tooltip
+                    contentStyle={tooltipStyle}
                     formatter={(v: any, name: any) => [
                       formatBRL(Number(v)),
                       name === 'amount' ? 'Total Faturado' : name === 'paid' ? 'Total Pago' : 'Saldo Devedor',
                     ]}
                   />
                   <Legend
+                    wrapperStyle={{ color: isDark ? '#cbd5e1' : '#475569' }}
                     formatter={(v) => (v === 'amount' ? 'Documentado' : v === 'paid' ? 'Pago' : 'Saldo')}
                   />
-                  <Bar dataKey="amount" fill="#94A3B8" name="amount" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="amount" fill={isDark ? '#475569' : '#94A3B8'} name="amount" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="paid" fill={COLORS.greenPrimary} name="paid" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="balance" fill={COLORS.orange} name="balance" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -383,7 +396,7 @@ export function Dashboard() {
                         />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(v: any) => [formatBRL(Number(v)), 'Pago']} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [formatBRL(Number(v)), 'Pago']} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-2 mt-2">
@@ -395,9 +408,9 @@ export function Dashboard() {
                             m.modality === 'FUMIP' ? 'bg-blue-600' : 'bg-purple-600'
                           }`}
                         />
-                        <span className="font-medium text-slate-700">{MODALITY_LABELS[m.modality]}</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">{MODALITY_LABELS[m.modality]}</span>
                       </div>
-                      <span className="font-semibold text-slate-900 tabular-nums">
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                         {formatBRL(m.paid)}
                       </span>
                     </div>
@@ -420,7 +433,7 @@ export function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-2xs">
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 uppercase tracking-wider text-2xs">
                     <th className="pb-2 font-semibold">Data</th>
                     <th className="pb-2 font-semibold">NF</th>
                     <th className="pb-2 font-semibold">Fornecedor</th>
@@ -428,16 +441,16 @@ export function Dashboard() {
                     <th className="pb-2 font-semibold text-right">Registrado Por</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {data.recent_payments.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-2.5 font-medium text-slate-600">{formatDateBR(p.payment_date)}</td>
-                      <td className="py-2.5 font-bold text-slate-900">{p.invoice_number}</td>
-                      <td className="py-2.5 text-slate-700">{p.supplier_name}</td>
-                      <td className="py-2.5 text-right font-bold text-emerald-700 tabular-nums">
+                    <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-2.5 font-medium text-slate-600 dark:text-slate-400">{formatDateBR(p.payment_date)}</td>
+                      <td className="py-2.5 font-bold text-slate-900 dark:text-slate-100">{p.invoice_number}</td>
+                      <td className="py-2.5 text-slate-700 dark:text-slate-300">{p.supplier_name}</td>
+                      <td className="py-2.5 text-right font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
                         {formatBRL(p.amount)}
                       </td>
-                      <td className="py-2.5 text-right text-slate-500">{p.created_by_name || '—'}</td>
+                      <td className="py-2.5 text-right text-slate-500 dark:text-slate-400">{p.created_by_name || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

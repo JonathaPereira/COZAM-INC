@@ -99,13 +99,13 @@ export function Login() {
       </div>
 
       {/* Painel de Formulário Direito */}
-      <div className="md:w-7/12 lg:w-1/2 flex items-center justify-center p-6 md:p-12 lg:p-16 bg-slate-50/50">
-        <div className="w-full max-w-md bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="md:w-7/12 lg:w-1/2 flex items-center justify-center p-6 md:p-12 lg:p-16 bg-slate-50/50 dark:bg-slate-950">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
               Acesso ao Sistema
             </h2>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Informe suas credenciais funcionais para continuar
             </p>
           </div>
@@ -134,7 +134,7 @@ export function Login() {
               <div className="flex justify-end mt-1.5">
                 <Link
                   to="/recuperar-senha"
-                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+                  className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline"
                 >
                   Esqueci minha senha
                 </Link>
@@ -154,26 +154,26 @@ export function Login() {
           </form>
 
           {/* Atalhos de Demonstração / Ambiente sem Supabase Configurado */}
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <p className="text-2xs font-semibold text-slate-400 uppercase tracking-wider text-center mb-3">
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-2xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center mb-3">
               Acesso rápido para testes de homologação
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => handleQuickLogin('admin')}
-                className="px-3 py-2 text-xs font-medium rounded-lg border border-emerald-200 bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 transition-colors text-center cursor-pointer"
+                className="px-3 py-2 text-xs font-medium rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors text-center cursor-pointer"
               >
                 Setor de Compras
-                <span className="block text-2xs text-emerald-700 font-normal">Administrador</span>
+                <span className="block text-2xs text-emerald-700 dark:text-emerald-400 font-normal">Administrador</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickLogin('pagamentos')}
-                className="px-3 py-2 text-xs font-medium rounded-lg border border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100 transition-colors text-center cursor-pointer"
+                className="px-3 py-2 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-center cursor-pointer"
               >
                 Setor de Pagamentos
-                <span className="block text-2xs text-slate-500 font-normal">Operador</span>
+                <span className="block text-2xs text-slate-500 dark:text-slate-400 font-normal">Operador</span>
               </button>
             </div>
           </div>

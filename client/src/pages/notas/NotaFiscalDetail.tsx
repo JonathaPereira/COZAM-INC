@@ -286,19 +286,19 @@ export function NotaFiscalDetail() {
           </Link>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
                 Nota Fiscal nº {invoice.invoice_number}
               </h1>
               <StatusBadge status={invoice.status} />
               <ForwardBadge forwardStatus={invoice.forward_status} />
               {invoice.is_historical && (
-                <span className="text-2xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                <span className="text-2xs font-semibold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   Histórica
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Fornecedor: <span className="font-semibold text-slate-800">{invoice.supplier_name}</span> · Processo: {invoice.process_number || '—'} · OF: {invoice.of_number || '—'}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Fornecedor: <span className="font-semibold text-slate-800 dark:text-slate-200">{invoice.supplier_name}</span> · Processo: {invoice.process_number || '—'} · OF: {invoice.of_number || '—'}
             </p>
           </div>
         </div>
@@ -355,14 +355,14 @@ export function NotaFiscalDetail() {
 
       {/* Banner de Nota Não Verificada (Pendência Histórica) */}
       {!invoice.verified && (
-        <div className="p-4 rounded-xl bg-slate-100 border border-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <HelpCircle className="w-6 h-6 text-slate-600 shrink-0" />
+            <HelpCircle className="w-6 h-6 text-slate-600 dark:text-slate-300 shrink-0" />
             <div>
-              <h4 className="text-xs font-bold text-slate-900">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
                 Nota Fiscal Sem Informação / Não Verificada
               </h4>
-              <p className="text-xs text-slate-600 mt-0.5">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                 Esta nota é oriunda de levantamento de pendências antigas. O registro de pagamentos fica bloqueado até que os dados sejam confirmados.
               </p>
             </div>
@@ -375,7 +375,7 @@ export function NotaFiscalDetail() {
                 setVerifyAmount(invoice.amount || null);
                 setVerifyOpen(true);
               }}
-              className="shrink-0 bg-white"
+              className="shrink-0 bg-white dark:bg-slate-800"
             >
               Informar Situação e Valor
             </Button>
@@ -384,18 +384,18 @@ export function NotaFiscalDetail() {
       )}
 
       {/* Linha do Tempo da Tramitação Documental */}
-      <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
-        <p className="text-2xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+        <p className="text-2xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
           Fluxo de Tramitação entre Setores
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
           <div className="flex items-start gap-2.5">
-            <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-2xs shrink-0 mt-0.5">
+            <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold text-2xs shrink-0 mt-0.5">
               ✓
             </div>
             <div>
-              <p className="font-semibold text-slate-900">1. Cadastrada</p>
-              <p className="text-2xs text-slate-500 mt-0.5">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">1. Cadastrada</p>
+              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Por {invoice.created_by_name || 'Compras'} em {formatDateTimeBR(invoice.created_at)}
               </p>
             </div>
@@ -404,16 +404,16 @@ export function NotaFiscalDetail() {
           <div className="flex items-start gap-2.5">
             <div
               className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-2xs shrink-0 mt-0.5 ${
-                invoice.forwarded_at ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'
+                invoice.forwarded_at ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
               }`}
             >
               {invoice.forwarded_at ? '✓' : '2'}
             </div>
             <div>
-              <p className={`font-semibold ${invoice.forwarded_at ? 'text-slate-900' : 'text-slate-400'}`}>
+              <p className={`font-semibold ${invoice.forwarded_at ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}`}>
                 2. Encaminhada
               </p>
-              <p className="text-2xs text-slate-500 mt-0.5">
+              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {invoice.forwarded_at
                   ? `Por ${invoice.forwarded_by_name || 'Compras'} em ${formatDateTimeBR(invoice.forwarded_at)}`
                   : 'Aguardando encaminhamento'}
@@ -424,16 +424,16 @@ export function NotaFiscalDetail() {
           <div className="flex items-start gap-2.5">
             <div
               className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-2xs shrink-0 mt-0.5 ${
-                invoice.attended_at ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'
+                invoice.attended_at ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
               }`}
             >
               {invoice.attended_at ? '✓' : '3'}
             </div>
             <div>
-              <p className={`font-semibold ${invoice.attended_at ? 'text-slate-900' : 'text-slate-400'}`}>
+              <p className={`font-semibold ${invoice.attended_at ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}`}>
                 3. Em Atendimento
               </p>
-              <p className="text-2xs text-slate-500 mt-0.5">
+              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {invoice.attended_at
                   ? `Por ${invoice.attended_by_name || 'Pagamentos'} em ${formatDateTimeBR(invoice.attended_at)}`
                   : 'Fila de Pagamentos'}
@@ -444,7 +444,7 @@ export function NotaFiscalDetail() {
           <div className="flex items-start gap-2.5">
             <div
               className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-2xs shrink-0 mt-0.5 ${
-                invoice.status === 'TOTALMENTE_PAGA' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400'
+                invoice.status === 'TOTALMENTE_PAGA' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
               }`}
             >
               {invoice.status === 'TOTALMENTE_PAGA' ? '✓' : '4'}

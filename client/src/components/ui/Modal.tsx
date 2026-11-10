@@ -36,25 +36,25 @@ export function Modal({ isOpen, onClose, title, subtitle, children, size = 'md' 
       <div className="flex min-h-screen items-center justify-center p-4 text-center">
         {/* Backdrop */}
         <div
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-2xs transition-opacity"
+          className="fixed inset-0 bg-slate-900/60 dark:bg-black/75 backdrop-blur-2xs transition-opacity"
           onClick={onClose}
         />
 
         {/* Dialog panel */}
         <div
-          className={`relative w-full ${sizes[size]} transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all border border-slate-200 z-10 flex flex-col`}
+          className={`relative w-full ${sizes[size]} transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 text-left shadow-2xl transition-all border border-slate-200 dark:border-slate-800 z-10 flex flex-col`}
           onClick={(e) => e.stopPropagation()}
         >
           {title && (
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-4">
               <div>
-                <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-                {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+                {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                className="rounded-lg p-1 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -108,12 +108,12 @@ export function ConfirmDialog({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
       <div className="flex items-start gap-4">
-        <div className={`p-3 rounded-full shrink-0 ${variant === 'danger' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-700'}`}>
+        <div className={`p-3 rounded-full shrink-0 ${variant === 'danger' ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'}`}>
           <AlertTriangle className="w-6 h-6" />
         </div>
         <div className="flex-1">
-          <h4 className="text-base font-semibold text-slate-900">{title}</h4>
-          <p className="text-sm text-slate-600 mt-1">{description}</p>
+          <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h4>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{description}</p>
 
           {requireReason && (
             <div className="mt-4">

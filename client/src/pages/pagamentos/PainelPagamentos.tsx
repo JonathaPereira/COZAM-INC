@@ -70,10 +70,10 @@ export function PainelPagamentos() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
             Fila de Documentos para Pagamento
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Notas Fiscais encaminhadas pelo setor de Compras prontas para liquidação financeira
           </p>
         </div>
@@ -82,21 +82,21 @@ export function PainelPagamentos() {
       {/* Cartões de Resumo da Fila */}
       {data?.summary && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Total na Fila de Pagamentos</span>
-            <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Total na Fila de Pagamentos</span>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
               {formatBRL(data.summary.amount)}
             </p>
           </div>
-          <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200 shadow-2xs">
-            <span className="text-xs font-semibold text-emerald-800 uppercase">Total Já Liquidado</span>
-            <p className="text-2xl font-bold text-emerald-700 mt-1 tabular-nums">
+          <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
+            <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase">Total Já Liquidado</span>
+            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums">
               {formatBRL(data.summary.total_paid)}
             </p>
           </div>
-          <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-200 shadow-2xs">
-            <span className="text-xs font-semibold text-orange-800 uppercase">Saldo Devedor a Pagar</span>
-            <p className="text-2xl font-bold text-orange-700 mt-1 tabular-nums">
+          <div className="p-4 bg-orange-50/50 dark:bg-orange-950/30 rounded-xl border border-orange-200 dark:border-orange-800/60 shadow-2xs">
+            <span className="text-xs font-semibold text-orange-800 dark:text-orange-300 uppercase">Saldo Devedor a Pagar</span>
+            <p className="text-2xl font-bold text-orange-700 dark:text-orange-400 mt-1 tabular-nums">
               {formatBRL(data.summary.balance)}
             </p>
           </div>
@@ -104,7 +104,7 @@ export function PainelPagamentos() {
       )}
 
       {/* Guias Rápidas por Situação */}
-      <div className="flex items-center gap-2 border-b border-slate-200">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
         {[
           { key: 'TODAS', label: 'Todas na Fila' },
           { key: 'AGUARDANDO', label: 'Aguardando Pagamento' },
@@ -120,8 +120,8 @@ export function PainelPagamentos() {
             }}
             className={`px-4 py-2.5 text-xs font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
               activeTab === tab.key
-                ? 'border-emerald-700 text-emerald-900 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-emerald-700 dark:border-emerald-400 text-emerald-900 dark:text-emerald-300 font-bold'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             {tab.label}
@@ -130,9 +130,9 @@ export function PainelPagamentos() {
       </div>
 
       {/* Filtros de Pesquisa (sem obrigar número de OF) */}
-      <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <div className="sm:col-span-2">
-          <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">
+          <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
             Pesquisar por NF, Processo ou Fornecedor
           </label>
           <div className="relative">
@@ -142,17 +142,17 @@ export function PainelPagamentos() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Digite o número da NF, processo..."
-              className="w-full text-xs pl-9 pr-3 py-2 rounded-lg border border-slate-200 focus:border-emerald-600 focus:outline-none"
+              className="w-full text-xs pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-emerald-600 focus:outline-none"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Fornecedor</label>
+          <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Fornecedor</label>
           <select
             value={supplierId}
             onChange={(e) => setSupplierId(e.target.value)}
-            className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+            className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           >
             <option value="">Todos os fornecedores</option>
             {suppliers?.map((s) => (
@@ -162,11 +162,11 @@ export function PainelPagamentos() {
         </div>
 
         <div>
-          <label className="block text-2xs font-semibold text-slate-600 uppercase mb-1">Modalidade</label>
+          <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Modalidade</label>
           <select
             value={modality}
             onChange={(e) => setModality(e.target.value)}
-            className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+            className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           >
             <option value="">Todas</option>
             <option value="FUMIP">FUMIP</option>
@@ -180,7 +180,7 @@ export function PainelPagamentos() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 uppercase tracking-wider text-2xs">
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-2xs">
                 <th className="py-3 px-4 font-semibold">Nº NF</th>
                 <th className="py-3 px-4 font-semibold">Emissão</th>
                 <th className="py-3 px-4 font-semibold">Fornecedor</th>
@@ -194,30 +194,30 @@ export function PainelPagamentos() {
                 <th className="py-3 px-4 font-semibold text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {data?.data && data.data.length > 0 ? (
                 data.data.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900">
-                      <Link to={`/notas/${inv.id}`} className="hover:text-emerald-700 hover:underline">
+                  <tr key={inv.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">
+                      <Link to={`/notas/${inv.id}`} className="hover:text-emerald-700 dark:hover:text-emerald-400 hover:underline">
                         {inv.invoice_number}
                       </Link>
                       {inv.notes && (
-                        <span className="block text-2xs text-amber-700 italic truncate max-w-[140px]" title={inv.notes}>
+                        <span className="block text-2xs text-amber-700 dark:text-amber-400 italic truncate max-w-[140px]" title={inv.notes}>
                           "{inv.notes}"
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-slate-600">{formatDateBR(inv.issue_date)}</td>
-                    <td className="py-3 px-4 font-medium text-slate-800">{inv.supplier_name}</td>
+                    <td className="py-3 px-4 text-slate-600 dark:text-slate-400">{formatDateBR(inv.issue_date)}</td>
+                    <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">{inv.supplier_name}</td>
                     <td className="py-3 px-4"><ModalityBadge modality={inv.modality} /></td>
-                    <td className="py-3 px-4 text-right font-medium text-slate-900 tabular-nums">
+                    <td className="py-3 px-4 text-right font-medium text-slate-900 dark:text-slate-100 tabular-nums">
                       {formatBRL(inv.amount)}
                     </td>
-                    <td className="py-3 px-4 text-right font-bold text-emerald-700 tabular-nums">
+                    <td className="py-3 px-4 text-right font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
                       {formatBRL(inv.total_paid)}
                     </td>
-                    <td className="py-3 px-4 text-right font-bold text-orange-700 tabular-nums">
+                    <td className="py-3 px-4 text-right font-bold text-orange-700 dark:text-orange-400 tabular-nums">
                       {formatBRL(inv.balance)}
                     </td>
                     <td className="py-3 px-4 text-center">
@@ -298,23 +298,23 @@ export function HistoricoPagamentos() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
           Histórico Completo de Pagamentos
         </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Registros financeiros de todas as liquidações realizadas no sistema
         </p>
       </div>
 
       {data?.summary && (
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase">Total Pago no Período</span>
-            <p className="text-2xl font-bold text-emerald-700 tabular-nums mt-0.5">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Total Pago no Período</span>
+            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
               {formatBRL(data.summary.total)}
             </p>
           </div>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             {data.summary.count} pagamento(s) localizado(s)
           </span>
         </div>
@@ -325,7 +325,7 @@ export function HistoricoPagamentos() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 uppercase tracking-wider text-2xs">
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-2xs">
                 <th className="py-3 px-4 font-semibold">Data do Pagto</th>
                 <th className="py-3 px-4 font-semibold">Nº NF</th>
                 <th className="py-3 px-4 font-semibold">Fornecedor</th>
@@ -338,19 +338,19 @@ export function HistoricoPagamentos() {
                 <th className="py-3 px-4 font-semibold text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {data?.data && data.data.length > 0 ? (
                 data.data.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-slate-900">{formatDateBR(p.payment_date)}</td>
-                    <td className="py-3 px-4 font-bold text-slate-800">{p.invoice_number}</td>
-                    <td className="py-3 px-4 text-slate-700">{p.supplier_name}</td>
+                  <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">{formatDateBR(p.payment_date)}</td>
+                    <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">{p.invoice_number}</td>
+                    <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{p.supplier_name}</td>
                     <td className="py-3 px-4"><ModalityBadge modality={p.modality} /></td>
-                    <td className="py-3 px-4 text-right font-bold text-emerald-700 tabular-nums">
+                    <td className="py-3 px-4 text-right font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
                       {formatBRL(p.amount)}
                     </td>
-                    <td className="py-3 px-4 text-slate-700">{p.created_by_name || '—'}</td>
-                    <td className="py-3 px-4 text-2xs text-slate-500">{formatDateTimeBR(p.created_at)}</td>
+                    <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{p.created_by_name || '—'}</td>
+                    <td className="py-3 px-4 text-2xs text-slate-500 dark:text-slate-400">{formatDateTimeBR(p.created_at)}</td>
                     <td className="py-3 px-4 text-center">
                       {p.receipt_document_id ? (
                         <DocumentActions
@@ -367,8 +367,8 @@ export function HistoricoPagamentos() {
                       <span
                         className={`inline-flex px-2 py-0.5 rounded text-2xs font-bold ${
                           p.status === 'VALIDO'
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                            : 'bg-rose-50 text-rose-800 border border-rose-200'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                         }`}
                       >
                         {p.status}

@@ -67,26 +67,26 @@ export function FileDropzone({
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
           {label} {required && <span className="text-rose-500">*</span>}
         </label>
       )}
 
       {selectedFile ? (
-        <div className="flex items-center justify-between p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-xl">
+        <div className="flex items-center justify-between p-3.5 bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 shrink-0">
+            <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 shrink-0">
               <FileText className="w-5 h-5" />
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-slate-900 truncate">{selectedFile.name}</p>
-              <p className="text-xs text-slate-500">{formatSize(selectedFile.size)}</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{selectedFile.name}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{formatSize(selectedFile.size)}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => onFileSelect(null)}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition-colors"
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
             title="Remover arquivo"
           >
             <X className="w-4 h-4" />
@@ -100,10 +100,10 @@ export function FileDropzone({
           onClick={() => inputRef.current?.click()}
           className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
             isDragging
-              ? 'border-emerald-500 bg-emerald-50/40'
+              ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30'
               : displayError
-              ? 'border-rose-300 bg-rose-50/20'
-              : 'border-slate-300 bg-slate-50/50 hover:bg-slate-100/50 hover:border-slate-400'
+              ? 'border-rose-300 dark:border-rose-700 bg-rose-50/20 dark:bg-rose-950/20'
+              : 'border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-100/50 dark:hover:bg-slate-800/60 hover:border-slate-400 dark:hover:border-slate-600'
           }`}
         >
           <input
@@ -117,17 +117,17 @@ export function FileDropzone({
               }
             }}
           />
-          <div className="p-2.5 rounded-full bg-white shadow-2xs text-slate-500 mb-2">
-            <UploadCloud className="w-6 h-6 text-emerald-700" />
+          <div className="p-2.5 rounded-full bg-white dark:bg-slate-800 shadow-2xs text-slate-500 dark:text-slate-400 mb-2">
+            <UploadCloud className="w-6 h-6 text-emerald-700 dark:text-emerald-400" />
           </div>
-          <p className="text-sm font-medium text-slate-800 text-center">
-            Arraste o arquivo aqui ou <span className="text-emerald-700 underline font-semibold">clique para selecionar</span>
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200 text-center">
+            Arraste o arquivo aqui ou <span className="text-emerald-700 dark:text-emerald-400 underline font-semibold">clique para selecionar</span>
           </p>
-          <p className="text-xs text-slate-500 mt-1">{helperText}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{helperText}</p>
         </div>
       )}
 
-      {displayError && <p className="mt-1.5 text-xs text-rose-600 font-medium">{displayError}</p>}
+      {displayError && <p className="mt-1.5 text-xs text-rose-600 dark:text-rose-400 font-medium">{displayError}</p>}
     </div>
   );
 }

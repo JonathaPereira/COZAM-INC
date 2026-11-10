@@ -31,10 +31,10 @@ export function ProcessosList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
             Processos Administrativos
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Cadastro geral de processos do consórcio, controle de OFs e NFs vinculadas
           </p>
         </div>
@@ -57,14 +57,14 @@ export function ProcessosList() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Pesquisar por número do processo ou descrição..."
-            className="w-full bg-white text-xs text-slate-800 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-600 focus:outline-none"
+            className="w-full bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-100 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-600 focus:outline-none"
           />
         </div>
 
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="text-xs py-2.5 px-3 rounded-xl border border-slate-200 bg-white text-slate-700 w-full sm:w-auto"
+          className="text-xs py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 w-full sm:w-auto"
         >
           <option value="">Todas as situações</option>
           <option value="EM_ANDAMENTO">Em andamento</option>
@@ -78,7 +78,7 @@ export function ProcessosList() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 uppercase tracking-wider text-2xs">
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-2xs">
                 <th className="py-3 px-4 font-semibold">Número do Processo</th>
                 <th className="py-3 px-4 font-semibold">Data Cadastro</th>
                 <th className="py-3 px-4 font-semibold">Objeto / Descrição</th>
@@ -91,13 +91,13 @@ export function ProcessosList() {
                 <th className="py-3 px-4 font-semibold text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {data?.data && data.data.length > 0 ? (
                 data.data.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900">{p.process_number}</td>
-                    <td className="py-3 px-4 text-slate-600">{formatDateBR(p.registered_at)}</td>
-                    <td className="py-3 px-4 text-slate-700 max-w-xs truncate" title={p.description}>
+                  <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">{p.process_number}</td>
+                    <td className="py-3 px-4 text-slate-600 dark:text-slate-400">{formatDateBR(p.registered_at)}</td>
+                    <td className="py-3 px-4 text-slate-700 dark:text-slate-300 max-w-xs truncate" title={p.description}>
                       {p.description}
                     </td>
                     <td className="py-3 px-4 text-slate-600">

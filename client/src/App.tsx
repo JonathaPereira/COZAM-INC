@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 
 import { AuthProvider } from './contexts/AuthContext.js';
+import { ThemeProvider } from './contexts/ThemeContext.js';
 import { AppShell, RequireAuth, RequirePermission } from './components/layout/AppShell.js';
 
 // Páginas de Autenticação
@@ -39,7 +40,8 @@ const queryClient = new QueryClient({
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
         <BrowserRouter>
           <Routes>
             {/* Rotas Públicas */}
@@ -191,6 +193,7 @@ export function App() {
         </BrowserRouter>
         <Toaster position="top-right" richColors />
       </AuthProvider>
-    </QueryClientProvider>
+    </ThemeProvider>
+  </QueryClientProvider>
   );
 }
