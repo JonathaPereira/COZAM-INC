@@ -617,4 +617,72 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     const cancelLog = auditRes.body.data.find((a: any) => a.action === 'PAGAMENTO_CANCELADO');
     expect(cancelLog.reason).toContain('TED devolvida pelo banco');
   });
+
+  // ---------------------------------------------------------------------------
+  // Cenário K: Suporte a Municípios consorciados (cadastro e filtragem de pendências)
+  // ---------------------------------------------------------------------------
+  it('Cenário K: Cadastra NF com município e filtra pendências por município', async () => {
+    // 1. Verifica lista de municípios iniciais
+    const munRes = await request(app)
+      .get('/api/invoices/municipalities')
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .expect(200);
+
+    expect(munRes.body.municipalities).toContain('Santana do Mundaú');
+    expect(munRes.body.municipalities).toContain('Branquinha');
+    expect(munRes.body.municipalities).toContain('União dos Palmares');
+    expect(munRes.body.municipalities).toContain('Carneiros');
+
+    // 2. Compras cadastra processo e OF
+    const proc = await request(app)
+      .post('/api/processes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ process_number: 'PROC-MUN-2026', description: 'Processo com Município' })
+      .expect(201);
+
+    const ofRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('process_id', proc.body.id)
+      .field('supplier_id', mzSupplierId)
+      .field('of_number', 'OF-MUN-01')
+      .field('issue_date', '2026-05-10')
+      .attach('file', Buffer.from('%PDF-1.4 OF'), 'of-mun.pdf')
+      .expect(201);
+
+    // 3. Cadastra NF com o município 'Santana do Mundaú'
+    const invRes = await request(app)
+      .post('/api/invoices')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('supply_order_id', ofRes.body.id)
+      .field('invoice_number', 'NF-MUN-100')
+      .field('issue_date', '2026-05-12')
+      .field('amount', '15000')
+      .field('modality', 'FUMIP')
+      .field('municipality', 'Santana do Mundaú')
+      .field('forward', 'true')
+      .attach('file', Buffer.from('%PDF-1.4 NF'), 'nf-mun.pdf')
+      .expect(201);
+
+    expect(invRes.body.municipality).toBe('Santana do Mundaú');
+
+    // 4. Pagamentos filtra por município Santana do Mundaú
+    const filterSantana = await request(app)
+      .get('/api/invoices?municipality=Santana')
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .expect(200);
+
+    const santanaInvoices = filterSantana.body.data.filter((i: any) => i.id === invRes.body.id);
+    expect(santanaInvoices.length).toBe(1);
+    expect(santanaInvoices[0].municipality).toBe('Santana do Mundaú');
+
+    // 5. Pagamentos filtra por Carneiros -> não deve retornar a NF de Santana do Mundaú
+    const filterCarneiros = await request(app)
+      .get('/api/invoices?municipality=Carneiros')
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .expect(200);
+
+    const carneirosInvoices = filterCarneiros.body.data.filter((i: any) => i.id === invRes.body.id);
+    expect(carneirosInvoices.length).toBe(0);
+  });
 });

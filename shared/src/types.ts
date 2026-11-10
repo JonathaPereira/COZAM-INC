@@ -128,6 +128,7 @@ export interface InvoiceRow {
   of_document_id: string | null;
   last_payment_date: string | null;
   payments_count: number;
+  municipality: string | null;
 }
 
 export interface PaymentRow {
@@ -155,6 +156,7 @@ export interface PaymentRow {
   modality: Modality | null;
   process_number: string | null;
   receipt_document_id: string | null;
+  municipality?: string | null;
 }
 
 export interface HistoricalStatusRow {

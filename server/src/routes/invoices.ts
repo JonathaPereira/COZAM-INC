@@ -18,6 +18,7 @@ const createInvoiceSchema = z.object({
   modality: z.enum(['FUMIP', 'COMPRA_COMPARTILHADA'], {
     errorMap: () => ({ message: 'Selecione a modalidade: FUMIP ou Compra Compartilhada.' }),
   }),
+  municipality: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   forward: z.union([z.boolean(), z.string()]).optional(),
 });
@@ -28,6 +29,7 @@ const updateInvoiceSchema = z.object({
   issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   amount: z.coerce.number().positive().optional(),
   modality: z.enum(['FUMIP', 'COMPRA_COMPARTILHADA']).optional(),
+  municipality: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   reason: z.string().trim().optional(),
 });
@@ -41,10 +43,39 @@ const createHistoricalSchema = z.object({
   amount: z.coerce.number().positive().optional().nullable(),
   modality: z.enum(['FUMIP', 'COMPRA_COMPARTILHADA']).optional().nullable(),
   supply_order_id: z.string().uuid().optional().nullable(),
+  municipality: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   known_paid_amount: z.coerce.number().min(0).optional().nullable(),
   payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   historical_notes: z.string().trim().optional().nullable(),
+});
+
+// Lista de municípios oficiais e cadastrados
+invoicesRouter.get('/invoices/municipalities', authenticate, async (_req, res, next) => {
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      `select distinct municipality from public.invoices
+        where municipality is not null and trim(municipality) <> ''
+        order by municipality asc`
+    );
+
+    const defaultMunicipalities = [
+      'Santana do Mundaú',
+      'Branquinha',
+      'União dos Palmares',
+      'Carneiros',
+    ];
+
+    const dbMunicipalities = result.rows.map((r: { municipality: string }) => r.municipality.trim());
+    const all = Array.from(new Set([...defaultMunicipalities, ...dbMunicipalities])).sort((a, b) =>
+      a.localeCompare(b, 'pt-BR')
+    );
+
+    res.json({ municipalities: all });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Verificação de duplicidade
@@ -98,6 +129,7 @@ invoicesRouter.get('/invoices', authenticate, async (req, res, next) => {
     const supplierId = typeof req.query.supplier_id === 'string' ? req.query.supplier_id.trim() : '';
     const processId = typeof req.query.process_id === 'string' ? req.query.process_id.trim() : '';
     const supplyOrderId = typeof req.query.supply_order_id === 'string' ? req.query.supply_order_id.trim() : '';
+    const municipality = typeof req.query.municipality === 'string' ? req.query.municipality.trim() : '';
     const modality = typeof req.query.modality === 'string' ? req.query.modality.trim() : '';
     const statusParam = typeof req.query.status === 'string' ? req.query.status.trim() : '';
     const forwardStatus = typeof req.query.forward_status === 'string' ? req.query.forward_status.trim() : '';
@@ -141,6 +173,10 @@ invoicesRouter.get('/invoices', authenticate, async (req, res, next) => {
     if (supplyOrderId) {
       params.push(supplyOrderId);
       where.push(`i.supply_order_id = $${params.length}`);
+    }
+    if (municipality) {
+      params.push(`%${municipality}%`);
+      where.push(`i.municipality ilike $${params.length}`);
     }
     if (modality) {
       params.push(modality);
@@ -343,8 +379,8 @@ invoicesRouter.post(
           const ins = await client.query(
             `insert into public.invoices (
                supply_order_id, process_id, supplier_id, invoice_number, issue_date,
-               amount, modality, notes, is_historical, verified, forward_status
-             ) values ($1, $2, $3, $4, $5, $6, $7, $8, false, true, 'RASCUNHO')
+               amount, modality, municipality, notes, is_historical, verified, forward_status
+             ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, false, true, 'RASCUNHO')
              returning *`,
             [
               data.supply_order_id,
@@ -354,6 +390,7 @@ invoicesRouter.post(
               data.issue_date,
               data.amount,
               data.modality,
+              data.municipality || null,
               data.notes || null,
             ]
           );
@@ -510,8 +547,9 @@ invoicesRouter.patch('/invoices/:id', authenticate, requirePermission('invoices.
                   issue_date = coalesce($3, issue_date),
                   amount = coalesce($4, amount),
                   modality = coalesce($5, modality),
-                  notes = coalesce($6, notes)
-            where id = $7
+                  municipality = coalesce($6, municipality),
+                  notes = coalesce($7, notes)
+            where id = $8
             returning *`,
           [
             data.supply_order_id ?? null,
@@ -519,6 +557,7 @@ invoicesRouter.patch('/invoices/:id', authenticate, requirePermission('invoices.
             data.issue_date ?? null,
             data.amount ?? null,
             data.modality ?? null,
+            data.municipality ?? null,
             data.notes ?? null,
             id,
           ]
@@ -722,9 +761,9 @@ invoicesRouter.post(
           const insInv = await client.query(
             `insert into public.invoices (
                supplier_id, invoice_number, issue_date, amount, modality,
-               supply_order_id, process_id, notes, is_historical, verified,
+               supply_order_id, process_id, municipality, notes, is_historical, verified,
                historical_source, forward_status
-             ) values ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, $10, 'ENCAMINHADA')
+             ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, $11, 'ENCAMINHADA')
              returning *`,
             [
               data.supplier_id,
@@ -734,6 +773,7 @@ invoicesRouter.post(
               data.modality || null,
               data.supply_order_id || null,
               processId,
+              data.municipality || null,
               data.notes || null,
               isVerified,
               data.informed_by,
