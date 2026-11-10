@@ -278,4 +278,25 @@ Após o deploy, realize a checagem ponta a ponta:
 
 ---
 
+## Tópico 8: Hospedagem de Alta Performance do Frontend na Vercel (Edge CDN)
+
+Para proporcionar a máxima velocidade de navegação, carregamento instantâneo de telas e disponibilidade ininterrupta, o frontend do COZAM foi preparado para publicação na **Vercel** através de CDN Edge com roteamento inteligente para a API no Render.
+
+### 8.1. Passo a Passo de Publicação na Vercel
+
+1. Acesse o dashboard da [Vercel](https://vercel.com/) e faça login com sua conta do GitHub.
+2. Clique no botão **"Add New..."** → **"Project"**.
+3. Localize o repositório `JonathaPereira/COZAM-INC` e clique em **"Import"**.
+4. A Vercel detectará automaticamente as configurações através do arquivo `vercel.json`:
+   - **Framework Preset:** `Vite`
+   - **Build Command:** `npm run vercel-build`
+   - **Output Directory:** `client/dist`
+5. Na seção **Environment Variables**, adicione as variáveis públicas do Supabase (para autenticação direta do cliente):
+   - `VITE_SUPABASE_URL`: sua URL do Supabase (ex: `https://wwtabxlxhejqaoetsbru.supabase.co`)
+   - `VITE_SUPABASE_ANON_KEY`: sua chave pública anônima do Supabase
+6. Clique em **"Deploy"**.
+7. Em menos de 1 minuto, sua aplicação estará no ar em uma URL ultra-rápida (ex: `https://cozam-inc.vercel.app`), com cache inteligente de assets estáticos e proxy transparente de todas as requisições `/api/*` para o backend no Render!
+
+---
+
 *Documentação mantida pela equipe técnica do COZAM — 2026.*
