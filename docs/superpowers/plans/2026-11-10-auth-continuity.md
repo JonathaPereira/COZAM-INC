@@ -24,16 +24,16 @@
 - Modify: `server/src/config.ts`
 - Test: `server/test/scenarios.test.ts`
 
-- [ ] **Step 1: Ajustar resolução de `migrationsDir` em `server/src/db/migrate.ts`**
+- [x] **Step 1: Ajustar resolução de `migrationsDir` em `server/src/db/migrate.ts`**
   Implementar lista de caminhos candidatos (`path.resolve(process.cwd(), 'supabase/migrations')`, `path.resolve(__dirname, '../../supabase/migrations')`, `path.resolve(__dirname, '../../../supabase/migrations')`) e verificar existência com `fs.stat`.
 
-- [ ] **Step 2: Inserir seed dos perfis de teste de homologação no `migrate.ts`**
+- [x] **Step 2: Inserir seed dos perfis de teste de homologação no `migrate.ts`**
   Garantir a inserção idempotente dos usuários `00000000-0000-0000-0000-000000000001` (Admin Compras) e `00000000-0000-0000-0000-000000000002` (Operador Pagamentos) na tabela `public.profiles`.
 
-- [ ] **Step 3: Recompilar o backend**
+- [x] **Step 3: Recompilar o backend**
   Executar `npm run build --workspace server`.
 
-- [ ] **Step 4: Executar testes de regressão**
+- [x] **Step 4: Executar testes de regressão**
   Executar `npm run test --workspace server` e garantir que todos os 10 cenários permaneçam com 100% de aprovação.
 
 ---
@@ -43,18 +43,18 @@
 **Files:**
 - Modify: `client/src/contexts/AuthContext.tsx`
 
-- [ ] **Step 1: Implementar fallback gracioso em `loginDev` no `AuthContext`**
+- [x] **Step 1: Implementar fallback gracioso em `loginDev` no `AuthContext`**
   Se a chamada a `/api/me` falhar durante o acesso rápido, instanciar localmente o perfil correspondente com as permissões completas de cada setor (`admin` para Compras, `pagamentos` para Pagamentos) e permitir o redirecionamento imediato para `/` ou `/pagamentos`.
 
-- [ ] **Step 2: Recompilar o frontend**
+- [x] **Step 2: Recompilar o frontend**
   Executar `npm run build --workspace client`.
 
 ---
 
 ### Task 3: Verificação e Validação Ponta a Ponta
 
-- [ ] **Step 1: Testar resposta da API com mock token**
+- [x] **Step 1: Testar resposta da API com mock token**
   Executar requisições de teste em `/api/health`, `/api/me` com `mock-admin` e `mock-pagamentos`.
 
-- [ ] **Step 2: Validar integridade dos comandos de build e commit das alterações**
+- [x] **Step 2: Validar integridade dos comandos de build e commit das alterações**
   Garantir `npm run build` executado com código 0 e registrar commit no repositório.
