@@ -61,13 +61,32 @@ export async function runMigrations(pool: DbPool): Promise<void> {
       );
     `);
 
-    const migrationsDir = path.resolve(__dirname, '../../../supabase/migrations');
+    // Busca resiliente do diretório supabase/migrations
+    const candidateDirs = [
+      path.resolve(process.cwd(), 'supabase/migrations'),
+      path.resolve(process.cwd(), 'COZAM-INC/supabase/migrations'),
+      path.resolve(__dirname, '../../supabase/migrations'),
+      path.resolve(__dirname, '../../../supabase/migrations'),
+    ];
+
+    let migrationsDir: string | null = null;
     let files: string[] = [];
-    try {
-      const allFiles = await fs.readdir(migrationsDir);
-      files = allFiles.filter((f) => f.endsWith('.sql')).sort();
-    } catch (err) {
-      console.warn('Pasta de migrations não encontrada:', migrationsDir, err);
+
+    for (const dir of candidateDirs) {
+      try {
+        const entries = await fs.readdir(dir);
+        files = entries.filter((f) => f.endsWith('.sql')).sort();
+        if (files.length > 0) {
+          migrationsDir = dir;
+          break;
+        }
+      } catch {
+        // tenta o próximo candidato
+      }
+    }
+
+    if (!migrationsDir) {
+      console.warn('[COZAM] Nenhuma pasta de migrations encontrada nos caminhos candidatos:', candidateDirs);
       return;
     }
 
@@ -87,6 +106,23 @@ export async function runMigrations(pool: DbPool): Promise<void> {
         throw new Error(`Falha na migration ${file}: ${(err as Error).message}`);
       }
     }
+
+    // Garante a existência dos usuários e perfis de demonstração/homologação no banco local
+    await client.query(`
+      insert into auth.users (id, email, raw_user_meta_data)
+      values
+        ('00000000-0000-0000-0000-000000000001', 'compras@cozam.al.gov.br', '{"role":"admin"}'::jsonb),
+        ('00000000-0000-0000-0000-000000000002', 'pagamentos@cozam.al.gov.br', '{"role":"pagamentos"}'::jsonb)
+      on conflict (id) do nothing;
+
+      insert into public.profiles (id, full_name, email, role, active)
+      values
+        ('00000000-0000-0000-0000-000000000001', 'Administrador Compras (Demonstração)', 'compras@cozam.al.gov.br', 'admin', true),
+        ('00000000-0000-0000-0000-000000000002', 'Operador Pagamentos (Demonstração)', 'pagamentos@cozam.al.gov.br', 'pagamentos', true)
+      on conflict (id) do update set
+        role = excluded.role,
+        active = true;
+    `);
   } finally {
     client.release();
   }
