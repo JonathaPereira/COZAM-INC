@@ -90,4 +90,4 @@
 
 - [x] **Step 1: Executar `npm run build` e validar compilação sem erros**
 - [x] **Step 2: Executar `npm run test --workspace server` para garantir regressão zero**
-- [ ] **Step 3: Commit e push para o repositório GitHub**
+- [x] **Step 3: Commit e push para o repositório GitHub**
