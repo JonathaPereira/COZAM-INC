@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, getErrorMessage } from '../../lib/api.js';
-import { UploadCloud, CheckCircle2, AlertTriangle, FileText, Check, ArrowRight, RefreshCw, Plus, Building } from 'lucide-react';
+import { UploadCloud, CheckCircle2, AlertTriangle, FileText, Check, ArrowRight, RefreshCw, Plus, Building, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ImportarContratoModalProps {
@@ -96,6 +96,65 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
     onClose();
   };
 
+  const handleItemChange = (index: number, field: string, value: any) => {
+    setExtractedData((prev: any) => {
+      if (!prev) return prev;
+      const nextItems = [...(prev.items || [])];
+      const it = { ...nextItems[index], [field]: value };
+      if (field === 'original_quantity' || field === 'unit_price') {
+        const q = Number(it.original_quantity || 0);
+        const u = Number(it.unit_price || 0);
+        it.total_price = Math.round(q * u * 100) / 100;
+        it.has_divergence = false;
+      }
+      nextItems[index] = it;
+      const newTotal = nextItems.reduce((acc: number, curr: any) => acc + Number(curr.total_price || 0), 0);
+      return {
+        ...prev,
+        items: nextItems,
+        total_amount: Math.round(newTotal * 100) / 100,
+      };
+    });
+  };
+
+  const handleAddItem = () => {
+    setExtractedData((prev: any) => {
+      if (!prev) return prev;
+      const currentItems = prev.items || [];
+      const nextNum = currentItems.length + 1;
+      const nextCode = String(nextNum).padStart(2, '0');
+      const newItem = {
+        item_code: nextCode,
+        description: '',
+        unit: 'Pacote',
+        original_quantity: 1,
+        unit_price: 0,
+        total_price: 0,
+        has_divergence: false,
+      };
+      const nextItems = [...currentItems, newItem];
+      const newTotal = nextItems.reduce((acc: number, curr: any) => acc + Number(curr.total_price || 0), 0);
+      return {
+        ...prev,
+        items: nextItems,
+        total_amount: Math.round(newTotal * 100) / 100,
+      };
+    });
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setExtractedData((prev: any) => {
+      if (!prev) return prev;
+      const nextItems = (prev.items || []).filter((_: any, i: number) => i !== index);
+      const newTotal = nextItems.reduce((acc: number, curr: any) => acc + Number(curr.total_price || 0), 0);
+      return {
+        ...prev,
+        items: nextItems,
+        total_amount: Math.round(newTotal * 100) / 100,
+      };
+    });
+  };
+
   const handleConfirmContract = () => {
     if (!extractedData) return;
 
@@ -106,6 +165,17 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
 
     if (!extractedData.contract_number || !extractedData.start_date || !extractedData.end_date) {
       toast.error('Preencha os campos obrigatórios (Número e Vigência).');
+      return;
+    }
+
+    const itemsToSave = extractedData.items || [];
+    if (itemsToSave.length === 0) {
+      toast.error('Adicione pelo menos um item contratado antes de aprovar.');
+      return;
+    }
+
+    if (itemsToSave.some((it: any) => !it.description?.trim() || Number(it.original_quantity) <= 0 || Number(it.unit_price) <= 0)) {
+      toast.error('Todos os itens devem possuir descrição, quantidade maior que zero e valor unitário maior que zero.');
       return;
     }
 
@@ -121,9 +191,9 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
       delivery_deadline_days: Number(extractedData.delivery_deadline_days || 15),
       total_amount: Number(extractedData.total_amount || 0),
       status: 'ATIVO',
-      items: (extractedData.items || []).map((it: any, idx: number) => ({
+      items: itemsToSave.map((it: any, idx: number) => ({
         item_code: it.item_code || `${idx + 1}`,
-        description: it.description,
+        description: it.description.trim(),
         category: it.category || 'MATERIAL_CONSUMO',
         unit: it.unit || 'UN',
         original_quantity: Number(it.original_quantity),
@@ -137,7 +207,7 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-3xl w-full p-6 border border-slate-200 dark:border-slate-700 my-8">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-5xl w-full p-6 border border-slate-200 dark:border-slate-700 my-8">
         <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-700">
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -456,7 +526,7 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
               </div>
             </div>
 
-            {/* Tabela de Itens Extraídos */}
+            {/* Tabela de Itens Extraídos e Editáveis */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -465,76 +535,113 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
                   </h3>
                   <button
                     type="button"
-                    onClick={() => {
-                      const nextCode = String((extractedData.items || []).length + 1);
-                      const newItem = {
-                        item_code: nextCode,
-                        description: `Novo Item ${nextCode}`,
-                        unit: 'UN',
-                        original_quantity: 1,
-                        unit_price: 0,
-                        total_price: 0,
-                        has_divergence: false,
-                      };
-                      setExtractedData({
-                        ...extractedData,
-                        items: [...(extractedData.items || []), newItem],
-                      });
-                    }}
-                    className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded text-2xs font-bold hover:bg-indigo-100 cursor-pointer"
+                    onClick={handleAddItem}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-md text-2xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition cursor-pointer"
                   >
-                    + Adicionar Item
+                    <Plus className="w-3 h-3" /> Adicionar Item
                   </button>
                 </div>
-                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                  Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(extractedData.total_amount || 0)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">Valor Total Contratual:</span>
+                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(extractedData.total_amount || 0)}
+                  </span>
+                </div>
               </div>
 
-              <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-x-auto max-h-56 overflow-y-auto">
+              <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-x-auto max-h-72 overflow-y-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 sticky top-0">
+                  <thead className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 sticky top-0 z-10">
                     <tr>
-                      <th className="p-2 w-14">Item</th>
-                      <th className="p-2">Descrição</th>
-                      <th className="p-2 w-16 text-center">UND</th>
-                      <th className="p-2 w-16 text-center">Qtd</th>
-                      <th className="p-2 w-24 text-right">Vlr Unit</th>
-                      <th className="p-2 w-28 text-right">Total</th>
-                      <th className="p-2 w-16 text-center">Status</th>
+                      <th className="p-2 w-16 text-center">Item</th>
+                      <th className="p-2 min-w-[280px]">Descrição (Especificação Limpa)</th>
+                      <th className="p-2 w-24 text-center">UND</th>
+                      <th className="p-2 w-20 text-center">Qtd</th>
+                      <th className="p-2 w-28 text-right">Vlr Unit (R$)</th>
+                      <th className="p-2 w-28 text-right">Total (R$)</th>
+                      <th className="p-2 w-12 text-center"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {(extractedData.items || []).length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-6 text-center text-slate-500 dark:text-slate-400">
+                        <td colSpan={7} className="p-8 text-center text-slate-500 dark:text-slate-400">
                           Nenhum item cadastrado ainda. Clique em "+ Adicionar Item" acima para inserir os itens contratados.
                         </td>
                       </tr>
                     ) : (
                       (extractedData.items || []).map((item: any, idx: number) => (
-                      <tr key={idx} className={item.has_divergence ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}>
-                        <td className="p-2 font-mono text-center">{item.item_code}</td>
-                        <td className="p-2 font-medium">{item.description}</td>
-                        <td className="p-2 text-center text-slate-500">{item.unit}</td>
-                        <td className="p-2 text-center font-semibold">{item.original_quantity}</td>
-                        <td className="p-2 text-right">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unit_price)}
-                        </td>
-                        <td className="p-2 text-right font-bold text-slate-900 dark:text-white">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.total_price)}
-                        </td>
-                        <td className="p-2 text-center">
-                          {item.has_divergence ? (
-                            <span className="text-amber-600 dark:text-amber-400" title={item.divergence_message}>
-                              ⚠️ Diverg.
-                            </span>
-                          ) : (
-                            <span className="text-emerald-600 dark:text-emerald-400">✓ Correto</span>
-                          )}
-                        </td>
-                      </tr>
-                    )))}
+                        <tr key={idx} className={`hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors ${item.has_divergence ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}`}>
+                          <td className="p-2 align-top">
+                            <input
+                              type="text"
+                              value={item.item_code || ''}
+                              onChange={(e) => handleItemChange(idx, 'item_code', e.target.value)}
+                              className="w-full px-1.5 py-1 text-center font-mono text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-indigo-500"
+                              placeholder="01"
+                            />
+                          </td>
+                          <td className="p-2 align-top">
+                            <textarea
+                              rows={2}
+                              value={item.description || ''}
+                              onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
+                              className="w-full px-2 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-indigo-500 resize-y"
+                              placeholder="Descrição do item contratado..."
+                            />
+                            {item.has_divergence && (
+                              <p className="text-2xs text-amber-600 dark:text-amber-400 mt-0.5">
+                                {item.divergence_message}
+                              </p>
+                            )}
+                          </td>
+                          <td className="p-2 align-top">
+                            <input
+                              type="text"
+                              value={item.unit || ''}
+                              onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
+                              className="w-full px-1.5 py-1 text-center text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-indigo-500"
+                              placeholder="Pacote"
+                            />
+                          </td>
+                          <td className="p-2 align-top">
+                            <input
+                              type="number"
+                              step="any"
+                              min="0"
+                              value={item.original_quantity ?? ''}
+                              onChange={(e) => handleItemChange(idx, 'original_quantity', e.target.value)}
+                              className="w-full px-1.5 py-1 text-center font-semibold text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-indigo-500"
+                              placeholder="1"
+                            />
+                          </td>
+                          <td className="p-2 align-top">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={item.unit_price ?? ''}
+                              onChange={(e) => handleItemChange(idx, 'unit_price', e.target.value)}
+                              className="w-full px-2 py-1 text-right text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-indigo-500"
+                              placeholder="0.00"
+                            />
+                          </td>
+                          <td className="p-2 align-top text-right pt-2.5 font-bold text-slate-900 dark:text-white">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.total_price || 0)}
+                          </td>
+                          <td className="p-2 align-top text-center pt-2">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              title="Remover este item"
+                              className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer rounded"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

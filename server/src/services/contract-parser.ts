@@ -85,6 +85,188 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 }
 
 /**
+ * Extrai itens estruturados de planilhas de contratos públicos e dispensas/pregões.
+ * Suporta quebras de página, descrições extensas em múltiplas linhas, colunas de marca
+ * (ignorando a marca e mantendo somente descrição limpa, código, unidade, quantidade, vlr unitário e total).
+ */
+function extractTableItemsFromPdf(text: string): ExtractedContractItem[] {
+  const planIdx = text.search(/(?:PLANILHA\s+(?:DOS|DE)\s+ITENS|RELA[ÇC][ÃA]O\s+D(?:OS|E)\s+ITENS|TABELA\s+D(?:OS|E)\s+ITENS|ITEM\s+[\t\|;\s]+(?:ESPECIFICA[ÇC][ÃA]O|DESCRI[ÇC][ÃA]O))/i);
+  if (planIdx === -1) return [];
+
+  const sub = text.slice(planIdx);
+  const endMatch = sub.search(/\n\s*(?:1\.3\.|2\.\s+CL[ÁA]USULA|CL[ÁA]USULA\s+(?:SEGUNDA|TERCEIRA|QUARTA|QUINTA)|DO\s+PAGAMENTO)/i);
+  const tableText = endMatch !== -1 ? sub.slice(0, endMatch) : sub;
+
+  const rawLines = tableText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const cleanLines: string[] = [];
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    if (/^PLANILHA\s+(?:DOS|DE)\s+ITENS/i.test(line)) continue;
+    if (/^--\s*\d+\s+of\s+\d+\s*--$/i.test(line)) continue;
+    if (/^CONSÓRCIO\s+INTERMUNICIPAL/i.test(line)) continue;
+    if (/^Av\.\s+Desembargador/i.test(line)) continue;
+    if (/^Fone:\s*\d+/i.test(line)) continue;
+    if (/^ITEM\s+(?:ESPECIFICAÇÃO|DESCRIÇÃO)/i.test(line)) continue;
+
+    const prev = rawLines[i - 1] || '';
+    const next = rawLines[i + 1] || '';
+    if (/^\d{1,3}$/.test(line)) {
+      if (/--\s*\d+\s+of\s+\d+\s*--/.test(prev) || /CONSÓRCIO/i.test(next) || /cozamcpl@/i.test(prev)) {
+        continue;
+      }
+    }
+
+    cleanLines.push(line);
+  }
+
+  const knownUnits = [
+    'Pacote', 'Unidade', 'UN', 'UND', 'Pct', 'Peça', 'Pç', 'CX', 'Caixa',
+    'KG', 'Quilo', 'L', 'Litro', 'Metro', 'M', 'Par', 'Rolo', 'Galão',
+    'Galao', 'Frasco', 'Kit', 'Fardo', 'Resma'
+  ];
+
+  interface RawItem {
+    item_code: string;
+    descParts: string[];
+    unit: string;
+    original_quantity: number;
+    unit_price: number;
+    total_price: number;
+  }
+
+  const items: RawItem[] = [];
+  let current: RawItem | null = null;
+
+  for (let i = 0; i < cleanLines.length; i++) {
+    const line = cleanLines[i];
+
+    const isStartMatch = line.match(/^([0-9]{1,3}(?:-[0-9]{1,3})?)\b(?:\s+(.*))?$/);
+
+    if (isStartMatch && (/^[0-9]{1,3}$/.test(line) || !current || (current && current.total_price > 0))) {
+      current = {
+        item_code: isStartMatch[1].padStart(2, '0'),
+        descParts: [],
+        unit: 'UN',
+        original_quantity: 0,
+        unit_price: 0,
+        total_price: 0,
+      };
+      if (isStartMatch[2]) {
+        current.descParts.push(isStartMatch[2].trim());
+      }
+      items.push(current);
+      continue;
+    }
+
+    if (line.includes('\t') || /\bR\$\s*[0-9\.,]+/.test(line)) {
+      const parts = line.includes('\t')
+        ? line.split('\t').map((s) => s.trim()).filter(Boolean)
+        : line.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+
+      if (parts.length >= 3) {
+        const lastPart = parts[parts.length - 1];
+        const secondToLast = parts[parts.length - 2];
+        const thirdToLast = parts[parts.length - 3];
+
+        const totalVal = parsePtBrNumber(lastPart);
+        const unitPriceVal = parsePtBrNumber(secondToLast);
+        const qtyVal = parsePtBrNumber(thirdToLast);
+
+        if (!isNaN(totalVal) && !isNaN(unitPriceVal) && totalVal > 0 && unitPriceVal > 0) {
+          if (current) {
+            current.original_quantity = !isNaN(qtyVal) && qtyVal > 0 ? qtyVal : 1;
+            current.unit_price = unitPriceVal;
+            current.total_price = totalVal;
+
+            const preValParts = parts.slice(0, parts.length - 3);
+            let extractedUnit = 'UN';
+            let descPrefix = '';
+
+            if (preValParts.length === 1) {
+              const p = preValParts[0];
+              const unitFound = knownUnits.find((u) => new RegExp(`\\b${u}\\b`, 'i').test(p));
+              if (unitFound) {
+                extractedUnit = unitFound;
+                descPrefix = p.replace(new RegExp(`\\b${unitFound}\\b`, 'i'), '').trim();
+              }
+            } else if (preValParts.length >= 2) {
+              const possibleUnit = preValParts[preValParts.length - 1];
+              const unitFound = knownUnits.find((u) => new RegExp(`^${u}$`, 'i').test(possibleUnit));
+              if (unitFound) {
+                extractedUnit = unitFound;
+              } else {
+                extractedUnit = possibleUnit;
+              }
+              descPrefix = preValParts.slice(0, preValParts.length - 1).join(' ');
+            }
+
+            current.unit = extractedUnit;
+
+            if (descPrefix) {
+              const words = descPrefix.split(/\s+/);
+              if (words.length <= 2 && words.every((w) => /^[A-ZÁÀÂÃÉÈÍÓÔÕÚÇ0-9]{2,}$/.test(w))) {
+                // marca isolada: ignora conforme solicitado
+              } else {
+                if (words.length > 1 && /^[A-ZÁÀÂÃÉÈÍÓÔÕÚÇ0-9]{2,}$/.test(words[words.length - 1])) {
+                  words.pop();
+                }
+                const cleanP = words.join(' ').trim();
+                if (cleanP) current.descParts.push(cleanP);
+              }
+            }
+          }
+          continue;
+        }
+      }
+    }
+
+    if (current) {
+      const nextLine = cleanLines[i + 1] || '';
+      if ((nextLine.includes('\t') || /\bR\$\s*[0-9\.,]+/.test(nextLine)) && /^[A-ZÁÀÂÃÉÈÍÓÔÕÚÇ0-9]{2,}$/.test(line)) {
+        continue; // ignora marca em linha isolada
+      }
+      current.descParts.push(line);
+    }
+  }
+
+  const validItems: RawItem[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (it.total_price > 0 && it.original_quantity > 0) {
+      validItems.push(it);
+    } else if (validItems.length > 0) {
+      const prev = validItems[validItems.length - 1];
+      const mergedText = `${it.item_code} ${it.descParts.join(' ')}`.trim();
+      prev.descParts.push(mergedText);
+    }
+  }
+
+  return validItems.map((it) => {
+    let fullDesc = it.descParts.join(' ').replace(/\s+/g, ' ').trim();
+    fullDesc = fullDesc.replace(/^[–\-—]\s*/, '').trim();
+
+    const calculated = Math.round(it.original_quantity * it.unit_price * 100) / 100;
+    const diff = Math.abs(calculated - it.total_price);
+    const hasDivergence = diff > 0.05;
+
+    return {
+      item_code: it.item_code,
+      description: fullDesc,
+      category: 'MATERIAL_CONSUMO',
+      unit: it.unit || 'UN',
+      original_quantity: it.original_quantity,
+      unit_price: it.unit_price,
+      total_price: it.total_price,
+      has_divergence: hasDivergence,
+      divergence_message: hasDivergence
+        ? `Cálculo divergente: ${it.original_quantity} x R$ ${it.unit_price.toFixed(2)} = R$ ${calculated.toFixed(2)}, mas no documento constou R$ ${it.total_price.toFixed(2)}`
+        : undefined,
+    };
+  });
+}
+
+/**
  * Parses a contract PDF buffer and extracts metadata and contract items.
  * Validates math: quantity * unit_price == total_price.
  */
@@ -146,7 +328,7 @@ export async function parseContractPdf(buffer: Buffer): Promise<ExtractedContrac
   }
 
   // 5. Total Amount
-  const totalMatch = text.match(/(?:valor\s+total|valor\s+global|montante|dá-se\s+ao\s+presente\s+contrato\s+o\s+valor(?:\s+total)?)\s*(?:de)?\s*(?:R\$\s*)?([0-9\.,]+)/i);
+  const totalMatch = text.match(/(?:valor\s+total(?:\s+da\s+contrata[çc][ãa]o)?|valor\s+global|montante|dá-se\s+ao\s+presente\s+contrato\s+o\s+valor(?:\s+total)?)\s*(?:ser[áa])?\s*(?:de)?\s*(?:R\$\s*)?([0-9\.,]+)/i);
   if (totalMatch) {
     const val = parsePtBrNumber(totalMatch[1]);
     if (!isNaN(val) && val > 0) {
@@ -173,45 +355,50 @@ export async function parseContractPdf(buffer: Buffer): Promise<ExtractedContrac
     }
   }
 
-  // 7. Tabular item pattern detection
-  // Typical line formats:
-  // "1 | Café em pó tradicional 250g | Unidade | 100 | 20,00 | 2.000,00"
-  // "01 Café tradicional PCT 100 20,00 2.000,00"
-  const itemLinePattern = /(?:^|\n)\s*([0-9]{1,4}(?:-[0-9]{1,4})?)\s*[\t\|;]\s*([^\|\t;]+?)\s*[\t\|;]\s*([a-zA-ZáàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\.\s]{2,15}?)\s*[\t\|;]\s*([0-9\.,]+)\s*[\t\|;]\s*(?:R\$\s*)?([0-9\.,]+)\s*[\t\|;]\s*(?:R\$\s*)?([0-9\.,]+)/g;
+  // 7. Extração estruturada de itens em tabelas de licitações e contratos públicos
+  // Detecta planilhas multi-linhas, com colunas de especificações longas, marca ignorada e quebras de página
+  const tableExtractedItems = extractTableItemsFromPdf(text);
+  if (tableExtractedItems.length > 0) {
+    result.items = tableExtractedItems;
+  }
 
-  let itMatch;
-  while ((itMatch = itemLinePattern.exec(text)) !== null) {
-    const itemCode = itMatch[1].trim();
-    const desc = itMatch[2].trim();
-    const unit = itMatch[3].trim();
-    const qty = parsePtBrNumber(itMatch[4]);
-    const unitPrice = parsePtBrNumber(itMatch[5]);
-    const totalPrice = parsePtBrNumber(itMatch[6]);
+  // 8. Fallback: Tabular item pattern detection (formato pipe/tab em linha única)
+  if (result.items.length === 0) {
+    const itemLinePattern = /(?:^|\n)\s*([0-9]{1,4}(?:-[0-9]{1,4})?)\s*[\t\|;]\s*([^\|\t;]+?)\s*[\t\|;]\s*([a-zA-ZáàâãéèêíïóôõöúçñÁÀÂÃÉÈÍÏÓÔÕÖÚÇÑ\.\s]{2,15}?)\s*[\t\|;]\s*([0-9\.,]+)\s*[\t\|;]\s*(?:R\$\s*)?([0-9\.,]+)\s*[\t\|;]\s*(?:R\$\s*)?([0-9\.,]+)/g;
 
-    if (!isNaN(qty) && !isNaN(unitPrice) && !isNaN(totalPrice) && qty > 0) {
-      const calculated = Math.round(qty * unitPrice * 100) / 100;
-      const diff = Math.abs(calculated - totalPrice);
-      const hasDivergence = diff > 0.05; // tolerância para pequenos arredondamentos
+    let itMatch;
+    while ((itMatch = itemLinePattern.exec(text)) !== null) {
+      const itemCode = itMatch[1].trim();
+      const desc = itMatch[2].trim();
+      const unit = itMatch[3].trim();
+      const qty = parsePtBrNumber(itMatch[4]);
+      const unitPrice = parsePtBrNumber(itMatch[5]);
+      const totalPrice = parsePtBrNumber(itMatch[6]);
 
-      result.items.push({
-        item_code: itemCode,
-        description: desc,
-        unit: unit || 'UN',
-        original_quantity: qty,
-        unit_price: unitPrice,
-        total_price: totalPrice,
-        has_divergence: hasDivergence,
-        divergence_message: hasDivergence
-          ? `Cálculo divergente: ${qty} x R$ ${unitPrice.toFixed(2)} = R$ ${calculated.toFixed(2)}, mas o documento indicou R$ ${totalPrice.toFixed(2)}`
-          : undefined,
-      });
+      if (!isNaN(qty) && !isNaN(unitPrice) && !isNaN(totalPrice) && qty > 0) {
+        const calculated = Math.round(qty * unitPrice * 100) / 100;
+        const diff = Math.abs(calculated - totalPrice);
+        const hasDivergence = diff > 0.05;
+
+        result.items.push({
+          item_code: itemCode,
+          description: desc,
+          unit: unit || 'UN',
+          original_quantity: qty,
+          unit_price: unitPrice,
+          total_price: totalPrice,
+          has_divergence: hasDivergence,
+          divergence_message: hasDivergence
+            ? `Cálculo divergente: ${qty} x R$ ${unitPrice.toFixed(2)} = R$ ${calculated.toFixed(2)}, mas o documento indicou R$ ${totalPrice.toFixed(2)}`
+            : undefined,
+        });
+      }
     }
   }
 
-  // If no items matched tabular pipe/tab delimiter, check whitespace-separated lines
+  // 9. Fallback: Verificação linha a linha separada por espaços múltiplos
   if (result.items.length === 0) {
     for (const line of lines) {
-      // e.g. "1   Fita isolante 19mmx10m   Unidade   25   27,84   696,00"
       const matchWs = line.match(/^([0-9]{1,4}(?:-[0-9]{1,4})?)\s{2,}(.+?)\s{2,}([A-Za-zÀ-ÿ]{2,10})\s{2,}([0-9\.,]+)\s{2,}(?:R\$\s*)?([0-9\.,]+)\s{2,}(?:R\$\s*)?([0-9\.,]+)$/);
       if (matchWs) {
         const qty = parsePtBrNumber(matchWs[4]);
