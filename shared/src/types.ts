@@ -94,6 +94,17 @@ export interface SupplyOrderRow {
   invoices_total: number;
   municipality?: string | null;
   municipalities?: string | null;
+  contract_id?: string | null;
+  contract_number?: string | null;
+  destination_id?: string | null;
+  destination_name?: string | null;
+  tracking_code?: string | null;
+  delivery_deadline?: string | null;
+  signed_document_id?: string | null;
+  signed_at?: string | null;
+  signed_by_name?: string | null;
+  status?: SupplyOrderStatus;
+  items_count?: number;
 }
 
 export interface InvoiceRow {
@@ -285,4 +296,151 @@ export interface PasswordResetRequest {
   approved_by_name?: string | null;
   created_at: string;
   resolved_at?: string | null;
+}
+
+export type SupplyOrderStatus = 'RASCUNHO' | 'AGUARDANDO_ASSINATURA' | 'CONFIRMADA' | 'PARCIALMENTE_ATENDIDA' | 'CONCLUIDA' | 'CANCELADA';
+
+export type ContractStatus = 'EM_ELABORACAO' | 'AGUARDANDO_CONFERENCIA' | 'ATIVO' | 'PROXIMO_VENCIMENTO' | 'SUSPENSO' | 'ENCERRADO' | 'VENCIDO' | 'RESCINDIDO';
+
+export type ProcurementModality = 'PREGAO_ELETRONICO' | 'CONCORRENCIA' | 'DISPENSA' | 'INEXIGIBILIDADE' | 'OUTRA';
+
+export type AmendmentType = 'PRAZO' | 'QUANTITATIVO_ACRESCIMO' | 'QUANTITATIVO_SUPRESSAO' | 'REAJUSTE' | 'OUTRO';
+
+export type ItemCategory = 'MATERIAL_CONSUMO' | 'MATERIAL_EXPEDIENTE' | 'AGUA_CAFE' | 'MATERIAL_ELETRICO' | 'EPIS' | 'SERVICOS' | 'LOCACAO' | 'OUTROS';
+
+export type ContractMovementType = 'RESERVA' | 'BAIXA' | 'LIBERACAO' | 'ESTORNO' | 'ADITIVO_ACRESCIMO' | 'ADITIVO_SUPRESSAO';
+
+export interface Destination {
+  id: string;
+  name: string;
+  cnpj?: string | null;
+  address?: string | null;
+  city: string;
+  state: string;
+  contact_department?: string | null;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProcurementProcess {
+  id: string;
+  process_number: string;
+  year: number;
+  bidding_number: string;
+  modality: ProcurementModality;
+  legal_framework: string;
+  object: string;
+  opening_date?: string | null;
+  homologation_date?: string | null;
+  manager_id?: string | null;
+  manager_name?: string | null;
+  status: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  contracts_count?: number;
+}
+
+export interface ContractRow {
+  id: string;
+  contract_number: string;
+  year: number;
+  procurement_id?: string | null;
+  procurement_bidding_number?: string | null;
+  procurement_modality?: ProcurementModality | null;
+  procurement_process_number?: string | null;
+  supplier_id: string;
+  supplier_name: string;
+  supplier_cnpj?: string | null;
+  supplier_legal_name?: string | null;
+  supplier_is_simples_nacional?: boolean;
+  object: string;
+  legal_framework: string;
+  signing_date: string;
+  start_date: string;
+  end_date: string;
+  delivery_deadline_days: number;
+  total_amount: number;
+  status: ContractStatus;
+  computed_status?: ContractStatus;
+  days_to_expire?: number;
+  contract_pdf_document_id?: string | null;
+  created_by?: string | null;
+  created_by_name?: string | null;
+  created_at: string;
+  updated_at: string;
+  items_count?: number;
+  requested_amount?: number;
+  remaining_amount?: number;
+}
+
+export interface ContractAmendment {
+  id: string;
+  contract_id: string;
+  amendment_number: string;
+  amendment_type: AmendmentType;
+  signing_date: string;
+  new_end_date?: string | null;
+  additional_amount: number;
+  justification: string;
+  document_id?: string | null;
+  created_by?: string | null;
+  created_by_name?: string | null;
+  created_at: string;
+}
+
+export interface ContractItemRow {
+  id: string;
+  contract_id: string;
+  item_code: string;
+  item_group?: string | null;
+  description: string;
+  category: ItemCategory;
+  unit: string;
+  original_quantity: number;
+  current_quantity: number;
+  unit_price: number;
+  total_price: number;
+  active: boolean;
+  reserved_quantity?: number;
+  requested_quantity?: number;
+  available_quantity?: number;
+  executed_amount?: number;
+  remaining_amount?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplyOrderItemRow {
+  id: string;
+  supply_order_id: string;
+  contract_item_id: string;
+  item_code: string;
+  description: string;
+  unit: string;
+  category: ItemCategory;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  delivered_quantity: number;
+  available_quantity?: number;
+}
+
+export interface ContractItemMovement {
+  id: string;
+  contract_item_id: string;
+  supply_order_id?: string | null;
+  movement_type: ContractMovementType;
+  quantity: number;
+  unit_price: number;
+  total_amount: number;
+  reason?: string | null;
+  client_request_id?: string | null;
+  actor_id?: string | null;
+  actor_name?: string | null;
+  created_at: string;
 }

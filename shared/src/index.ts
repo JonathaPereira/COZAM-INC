@@ -102,6 +102,64 @@ export const HISTORICAL_REPORT_LABELS: Record<HistoricalReportStatus, string> = 
   PAGA: 'Paga (confirmado)',
 };
 
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  EM_ELABORACAO: 'Em Elaboração',
+  AGUARDANDO_CONFERENCIA: 'Aguardando Conferência',
+  ATIVO: 'Ativo',
+  PROXIMO_VENCIMENTO: 'Próximo do Vencimento',
+  SUSPENSO: 'Suspenso',
+  ENCERRADO: 'Encerrado',
+  VENCIDO: 'Vencido',
+  RESCINDIDO: 'Rescindido',
+};
+
+export const CONTRACT_STATUS_TONES: Record<ContractStatus, 'yellow' | 'orange' | 'green' | 'gray' | 'red'> = {
+  EM_ELABORACAO: 'gray',
+  AGUARDANDO_CONFERENCIA: 'yellow',
+  ATIVO: 'green',
+  PROXIMO_VENCIMENTO: 'orange',
+  SUSPENSO: 'red',
+  ENCERRADO: 'gray',
+  VENCIDO: 'red',
+  RESCINDIDO: 'red',
+};
+
+export const SUPPLY_ORDER_STATUS_LABELS: Record<SupplyOrderStatus, string> = {
+  RASCUNHO: 'Rascunho',
+  AGUARDANDO_ASSINATURA: 'Aguardando Assinatura',
+  CONFIRMADA: 'Assinada / Confirmada',
+  PARCIALMENTE_ATENDIDA: 'Parcialmente Atendida',
+  CONCLUIDA: 'Concluída',
+  CANCELADA: 'Cancelada',
+};
+
+export const PROCUREMENT_MODALITY_LABELS: Record<ProcurementModality, string> = {
+  PREGAO_ELETRONICO: 'Pregão Eletrônico',
+  CONCORRENCIA: 'Concorrência',
+  DISPENSA: 'Dispensa de Licitação',
+  INEXIGIBILIDADE: 'Inexigibilidade',
+  OUTRA: 'Outro Procedimento',
+};
+
+export const ITEM_CATEGORY_LABELS: Record<ItemCategory, string> = {
+  MATERIAL_CONSUMO: 'Material de Consumo',
+  MATERIAL_EXPEDIENTE: 'Material de Expediente',
+  AGUA_CAFE: 'Água e Café',
+  MATERIAL_ELETRICO: 'Material Elétrico',
+  EPIS: 'Equipamentos de Proteção (EPIs)',
+  SERVICOS: 'Serviços',
+  LOCACAO: 'Locação de Veículos / Equipamentos',
+  OUTROS: 'Outros',
+};
+
+export const AMENDMENT_TYPE_LABELS: Record<AmendmentType, string> = {
+  PRAZO: 'Prorrogação de Prazo',
+  QUANTITATIVO_ACRESCIMO: 'Acréscimo de Quantitativo / Valor',
+  QUANTITATIVO_SUPRESSAO: 'Supressão de Quantitativo / Valor',
+  REAJUSTE: 'Reajuste / Repactuação de Preço',
+  OUTRO: 'Outro',
+};
+
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
   PROCESSO_CADASTRADO: 'Processo cadastrado',
   PROCESSO_ALTERADO: 'Processo alterado',
