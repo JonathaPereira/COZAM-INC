@@ -257,3 +257,23 @@ export interface ReportResult {
 export interface ApiErrorBody {
   error: { code: string; message: string; details?: unknown };
 }
+
+export type PasswordResetStatus = 'PENDENTE' | 'APROVADA' | 'REJEITADA';
+
+export interface PasswordResetRequest {
+  id: string;
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  status: PasswordResetStatus;
+  request_reason?: string | null;
+  has_proposed_password?: boolean;
+  proposed_password?: string | null;
+  temporary_password?: string | null;
+  admin_notes?: string | null;
+  approved_by?: string | null;
+  approved_by_name?: string | null;
+  created_at: string;
+  resolved_at?: string | null;
+}

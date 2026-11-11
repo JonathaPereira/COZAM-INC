@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Search, LogOut, User as UserIcon, Shield, ChevronDown, Sun, Moon } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Menu, Search, LogOut, User as UserIcon, Shield, ChevronDown, Sun, Moon, Bell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext.js';
 import { useTheme } from '../../contexts/ThemeContext.js';
 import { ROLE_LABELS } from '@cozam/shared';
 import { ProfileModal } from '../profile/ProfileModal.js';
+import { api } from '../../lib/api.js';
 
 export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
   const { profile, logout } = useAuth();
@@ -13,6 +15,15 @@ export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const navigate = useNavigate();
+
+  const { data: pendingData } = useQuery({
+    queryKey: ['pending-password-resets-count'],
+    queryFn: () => api.get<{ pendingCount: number }>('/password-reset-requests/pending-count'),
+    enabled: profile?.role === 'admin',
+    refetchInterval: 15000,
+  });
+
+  const pendingCount = pendingData?.pendingCount || 0;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,8 +64,29 @@ export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
         </form>
       </div>
 
-      {/* Direita: alternador de tema e perfil de usuário */}
+      {/* Direita: notificações, alternador de tema e perfil de usuário */}
       <div className="flex items-center gap-2">
+        {/* Notificação de Solicitações de Senha para Administrador */}
+        {profile?.role === 'admin' && (
+          <button
+            type="button"
+            onClick={() => navigate('/usuarios?tab=solicitacoes')}
+            title={
+              pendingCount > 0
+                ? `${pendingCount} solicitação(ões) de redefinição de senha aguardando sua autorização`
+                : 'Nenhuma solicitação de senha pendente'
+            }
+            className="relative p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            <Bell className="w-5 h-5" />
+            {pendingCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-2xs font-extrabold text-white shadow-xs animate-pulse">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        )}
+
         {/* Botão de Alternância de Tema (Modo Escuro / Claro) */}
         <button
           type="button"

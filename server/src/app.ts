@@ -19,6 +19,7 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { reportsRouter } from './routes/reports.js';
 import { usersRouter } from './routes/users.js';
 import { auditRouter } from './routes/audit.js';
+import { passwordResetsRouter } from './routes/password-resets.js';
 
 export function createApp(): Express {
   const app = express();
@@ -73,6 +74,7 @@ export function createApp(): Express {
   app.use('/api', reportsRouter);
   app.use('/api', usersRouter);
   app.use('/api', auditRouter);
+  app.use('/api', passwordResetsRouter);
 
   // Tratamento de erros da API
   app.use('/api', errorHandler);

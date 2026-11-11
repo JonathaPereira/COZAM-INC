@@ -122,6 +122,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   HISTORICO_INFORMADO: 'Situação histórica informada',
   USUARIO_CRIADO: 'Usuário criado',
   USUARIO_ALTERADO: 'Usuário alterado',
+  SENHA_REDEFINIDA_ADMIN: 'Senha redefinida e autorizada pelo administrador',
+  SENHA_DEFINIDA_ADMIN: 'Nova senha definida pelo administrador',
   FORNECEDOR_CADASTRADO: 'Fornecedor cadastrado',
   FORNECEDOR_ALTERADO: 'Fornecedor alterado',
 };

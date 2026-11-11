@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard,
   FilePlus2,
@@ -19,6 +20,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext.js';
 import { BRAND } from '../../config/brand.js';
 import { ROLE_LABELS } from '@cozam/shared';
+import { api } from '../../lib/api.js';
 
 interface NavItem {
   to: string;
@@ -31,6 +33,14 @@ interface NavItem {
 export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
   const { profile, can } = useAuth();
   const location = useLocation();
+
+  const { data: pendingData } = useQuery({
+    queryKey: ['pending-password-resets-count'],
+    queryFn: () => api.get<{ pendingCount: number }>('/password-reset-requests/pending-count'),
+    enabled: profile?.role === 'admin',
+    refetchInterval: 15000,
+  });
+  const pendingCount = pendingData?.pendingCount || 0;
 
   const groups: { title: string; items: NavItem[] }[] = [
     {
@@ -67,7 +77,13 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
       title: 'Administração',
       items: [
         { to: '/fornecedores', label: 'Fornecedores', icon: <Building2 className="w-4 h-4" />, perm: 'suppliers.manage' },
-        { to: '/usuarios', label: 'Usuários e Permissões', icon: <Users className="w-4 h-4" />, perm: 'users.manage' },
+        {
+          to: '/usuarios',
+          label: 'Usuários e Permissões',
+          icon: <Users className="w-4 h-4" />,
+          perm: 'users.manage',
+          badge: pendingCount > 0 ? String(pendingCount) : undefined,
+        },
       ],
     },
   ];
@@ -155,7 +171,17 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
                         </span>
                         <span>{item.label}</span>
                       </div>
-                      {isActive && <ChevronRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                      <div className="flex items-center gap-1.5">
+                        {item.badge && (
+                          <span
+                            title={`${item.badge} solicitação(ões) pendente(s)`}
+                            className="px-1.5 py-0.5 rounded-full text-2xs font-extrabold bg-amber-500 text-white animate-pulse"
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                        {isActive && <ChevronRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                      </div>
                     </NavLink>
                   );
                 })}

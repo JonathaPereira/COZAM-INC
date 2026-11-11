@@ -889,4 +889,88 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
 
     expect(ofMunRes.body.some((o: any) => o.id === ofId)).toBe(true);
   });
+
+  // ---------------------------------------------------------------------------
+  // Cenário M: Mecanismo de redefinição de senha com autorização do Administrador
+  // (para e-mails institucionais fictícios usados como login)
+  // ---------------------------------------------------------------------------
+  it('Cenário M: Gerente de Pagamentos solicita nova senha e Administrador autoriza no painel', async () => {
+    // 1. Solicitação de redefinição enviada pelo login institucional de pagamentos
+    const reqRes = await request(app)
+      .post('/api/auth/request-password-reset')
+      .send({
+        email: 'pagamentos@cozam.al.gov.br',
+        proposed_password: 'NovaSenhaPag@2026',
+        reason: 'Esqueci a senha após o recesso - João Paulo',
+      })
+      .expect(201);
+
+    expect(reqRes.body.success).toBe(true);
+
+    // 2. Consulta pública do status da solicitação pelo e-mail
+    const statusRes = await request(app)
+      .get('/api/auth/password-reset-status?email=pagamentos@cozam.al.gov.br')
+      .expect(200);
+
+    expect(statusRes.body.request).toBeDefined();
+    expect(statusRes.body.request.status).toBe('PENDENTE');
+    expect(statusRes.body.request.request_reason).toContain('João Paulo');
+
+    // 3. Admin recebe notificação com contagem pendente
+    const countRes = await request(app)
+      .get('/api/password-reset-requests/pending-count')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(countRes.body.pendingCount).toBeGreaterThanOrEqual(1);
+
+    // 4. Admin lista as solicitações
+    const listRes = await request(app)
+      .get('/api/password-reset-requests?status=PENDENTE')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const pendingItem = listRes.body.find((r: any) => r.email === 'pagamentos@cozam.al.gov.br');
+    expect(pendingItem).toBeDefined();
+
+    // 5. Usuário não-admin tenta autorizar -> 403 Forbidden
+    await request(app)
+      .post(`/api/password-reset-requests/${pendingItem.id}/approve`)
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .send({})
+      .expect(403);
+
+    // 6. Admin autoriza a mudança de senha
+    const approveRes = await request(app)
+      .post(`/api/password-reset-requests/${pendingItem.id}/approve`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ admin_notes: 'Autorizado conforme solicitação do setor de pagamentos' })
+      .expect(200);
+
+    expect(approveRes.body.success).toBe(true);
+
+    // 7. Status atualizado para APROVADA
+    const checkApproved = await request(app)
+      .get('/api/auth/password-reset-status?email=pagamentos@cozam.al.gov.br')
+      .expect(200);
+
+    expect(checkApproved.body.request.status).toBe('APROVADA');
+
+    // 8. Registro de auditoria gravado
+    const auditRes = await request(app)
+      .get('/api/audit?action=SENHA_REDEFINIDA_ADMIN')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(auditRes.body.data.some((a: any) => a.action === 'SENHA_REDEFINIDA_ADMIN')).toBe(true);
+
+    // 9. Admin também pode redefinir senha diretamente de qualquer usuário
+    const directSetRes = await request(app)
+      .post('/api/users/00000000-0000-0000-0000-000000000002/set-password')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ password: 'SenhaDiretaAdmin@2026', reason: 'Redefinição direta presencial' })
+      .expect(200);
+
+    expect(directSetRes.body.success).toBe(true);
+  });
 });
