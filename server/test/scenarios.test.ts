@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { PGlite } from '@electric-sql/pglite';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { createApp } from '../src/app.js';
 import { createPGlitePool, setCustomPool, type DbPool } from '../src/db/pool.js';
 import { runMigrations } from '../src/db/migrate.js';
@@ -1397,5 +1398,58 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     expect(contractCheck2.body.items[0].reserved_quantity).toBe(0);
     expect(contractCheck2.body.items[0].delivered_quantity).toBe(30);
     expect(contractCheck2.body.items[0].available_quantity).toBe(70);
+  });
+
+  it('Cenário R: Importação e parsing de PDF de contrato com extração de itens e validação de cálculos', async () => {
+    // 1. Cria um PDF em memória contendo texto contratual
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([600, 800]);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    const contractText = [
+      'ESTADO DE ALAGOAS - CONSÓRCIO INTERMUNICIPAL DA ZONA DA MATA ALAGOANA',
+      'CONTRATO ADMINISTRATIVO Nº 088/2026',
+      'CONTRATADA: MZ BERNARDI E CIA LTDA, inscrita no CNPJ sob o nº 02.418.125/0001-61',
+      'CLÁUSULA PRIMEIRA - OBJETO: CONTRATAÇÃO DE EMPRESA PARA FORNECIMENTO DE LÂMPADAS E MATERIAIS DE ILUMINAÇÃO',
+      'FUNDAMENTAÇÃO LEGAL: Lei 14.133/2021',
+      'CLÁUSULA SEGUNDA - VIGÊNCIA: O prazo de vigência será de 01/06/2026 até 01/06/2027',
+      'VALOR TOTAL: R$ 5.000,00',
+      '',
+      'ITENS CONTRATADOS:',
+      '1 | Lâmpada LED Tubular 18W | Unidade | 100 | 25,00 | 2.500,00',
+      '2 | Fita isolante 19mmx20m | Rolo | 50 | 50,00 | 2.500,00',
+    ].join('\n');
+
+    let y = 750;
+    for (const line of contractText.split('\n')) {
+      if (line.trim()) {
+        page.drawText(line, { x: 50, y, size: 10, font });
+      }
+      y -= 18;
+    }
+
+    const pdfBytes = await pdfDoc.save();
+
+    // 2. Faz o envio para o endpoint de parsing
+    const parseRes = await request(app)
+      .post('/api/contracts/parse-pdf')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('file', Buffer.from(pdfBytes), 'contrato-088-2026.pdf')
+      .expect(200);
+
+    expect(parseRes.body.success).toBe(true);
+    const data = parseRes.body.extracted_data;
+
+    expect(data.contract_number).toBe('088');
+    expect(data.year).toBe(2026);
+    expect(data.supplier_cnpj).toBe('02.418.125/0001-61');
+    expect(data.matched_supplier).toBeDefined();
+    expect(data.matched_supplier.id).toBe(mzSupplierId);
+    expect(data.items).toHaveLength(2);
+    expect(data.items[0].description).toBe('Lâmpada LED Tubular 18W');
+    expect(data.items[0].original_quantity).toBe(100);
+    expect(data.items[0].unit_price).toBe(25);
+    expect(data.items[0].total_price).toBe(2500);
+    expect(data.items[0].has_divergence).toBe(false);
   });
 });

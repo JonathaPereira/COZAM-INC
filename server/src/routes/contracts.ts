@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, requirePermission } from '../middleware/auth.js';
+import { upload } from '../middleware/upload.js';
 import { getPool } from '../db/pool.js';
 import { runInTransaction } from '../db/transaction.js';
+import { parseContractPdf, cleanCnpj } from '../services/contract-parser.js';
 import { AppError } from '../middleware/errors.js';
 
 export const contractsRouter = Router();
@@ -208,6 +210,51 @@ contractsRouter.get('/contracts/:id', authenticate, requirePermission('contracts
     next(err);
   }
 });
+
+// Parser e extração automática de dados de contrato em PDF com validação matemática
+contractsRouter.post(
+  '/contracts/parse-pdf',
+  authenticate,
+  requirePermission('contracts.write'),
+  upload.single('file'),
+  async (req, res, next) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        throw new AppError('Nenhum arquivo PDF de contrato foi enviado.', {
+          code: 'DADOS_INVALIDOS',
+          status: 400,
+        });
+      }
+
+      const extracted = await parseContractPdf(file.buffer);
+
+      let matchedSupplier: any = null;
+      if (extracted.supplier_cnpj) {
+        const pool = getPool();
+        const digits = cleanCnpj(extracted.supplier_cnpj);
+        const supRes = await pool.query(
+          `SELECT id, name, legal_name, cnpj FROM public.suppliers 
+            WHERE regexp_replace(cnpj, '[^0-9]', '', 'g') = $1 LIMIT 1`,
+          [digits]
+        );
+        if (supRes.rowCount && supRes.rowCount > 0) {
+          matchedSupplier = supRes.rows[0];
+        }
+      }
+
+      res.json({
+        success: true,
+        extracted_data: {
+          ...extracted,
+          matched_supplier: matchedSupplier,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // Cadastro de contrato com itens
 contractsRouter.post('/contracts', authenticate, requirePermission('contracts.write'), async (req, res, next) => {
