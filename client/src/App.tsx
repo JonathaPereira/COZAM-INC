@@ -17,6 +17,11 @@ import { LancamentoWizard } from './pages/lancamento/LancamentoWizard.js';
 import { ProcessosList } from './pages/processos/ProcessosList.js';
 import { ProcessoDetail } from './pages/processos/ProcessoDetail.js';
 import { OrdensList, OrdemDetail } from './pages/ordens/OrdensList.js';
+import { NovaOrdemWizard } from './pages/ordens/NovaOrdemWizard.js';
+import { ContratosListPage } from './pages/contratos/ContratosListPage.js';
+import { ContratoDetailPage } from './pages/contratos/ContratoDetailPage.js';
+import { LicitacoesPage } from './pages/licitacoes/LicitacoesPage.js';
+import { DestinatariosPage } from './pages/destinatarios/DestinatariosPage.js';
 import { NotasFiscaisList } from './pages/notas/NotasFiscaisList.js';
 import { NotaFiscalDetail } from './pages/notas/NotaFiscalDetail.js';
 import { PainelPagamentos, HistoricoPagamentos } from './pages/pagamentos/PainelPagamentos.js';
@@ -95,10 +100,55 @@ export function App() {
               />
 
               <Route
+                path="contratos"
+                element={
+                  <RequirePermission permission="contracts.view">
+                    <ContratosListPage />
+                  </RequirePermission>
+                }
+              />
+
+              <Route
+                path="contratos/:id"
+                element={
+                  <RequirePermission permission="contracts.view">
+                    <ContratoDetailPage />
+                  </RequirePermission>
+                }
+              />
+
+              <Route
+                path="licitacoes"
+                element={
+                  <RequirePermission permission="procurements.view">
+                    <LicitacoesPage />
+                  </RequirePermission>
+                }
+              />
+
+              <Route
+                path="destinatarios"
+                element={
+                  <RequirePermission permission="destinations.manage">
+                    <DestinatariosPage />
+                  </RequirePermission>
+                }
+              />
+
+              <Route
                 path="ordens"
                 element={
                   <RequirePermission permission="processes.view">
                     <OrdensList />
+                  </RequirePermission>
+                }
+              />
+
+              <Route
+                path="ordens/nova"
+                element={
+                  <RequirePermission permission="supply_orders.write">
+                    <NovaOrdemWizard />
                   </RequirePermission>
                 }
               />

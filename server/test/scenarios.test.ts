@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { PGlite } from '@electric-sql/pglite';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { createApp } from '../src/app.js';
 import { createPGlitePool, setCustomPool, type DbPool } from '../src/db/pool.js';
 import { runMigrations } from '../src/db/migrate.js';
@@ -1089,5 +1090,366 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     expect(repRow.municipality).toBe('Branquinha');
     expect(repRes.body.columns.some((c: any) => c.key === 'tax_amount')).toBe(true);
     expect(repRes.body.columns.some((c: any) => c.key === 'net_amount')).toBe(true);
+  });
+
+  it('Cenário O: Gestão de Contratos — Cadastro de processo licitatório, contrato com itens, saldo inicial e aditivo de prazo', async () => {
+    // 1. Cadastra processo licitatório
+    const procRes = await request(app)
+      .post('/api/procurement-processes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        process_number: 'PROC-LIC-002/2026',
+        year: 2026,
+        bidding_number: 'Pregão Eletrônico 002/2026',
+        modality: 'PREGAO_ELETRONICO',
+        legal_framework: 'Lei 14.133/2021',
+        object: 'Contratação para aquisição de material elétrico, EPIs e suprimentos',
+        opening_date: '2026-03-10',
+        homologation_date: '2026-04-01',
+      })
+      .expect(201);
+
+    expect(procRes.body.bidding_number).toBe('Pregão Eletrônico 002/2026');
+
+    // 2. Cadastra contrato vinculado ao processo e fornecedor MZ Bernardi
+    const contractRes = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '012/2026',
+        year: 2026,
+        procurement_id: procRes.body.id,
+        supplier_id: mzSupplierId,
+        object: 'Contratação para fornecimento de café e materiais de consumo',
+        legal_framework: 'Lei 14.133/2021',
+        signing_date: '2026-04-16',
+        start_date: '2026-04-16',
+        end_date: '2027-04-16',
+        delivery_deadline_days: 15,
+        total_amount: 2000.0,
+        status: 'ATIVO',
+        items: [
+          {
+            item_code: '1-1',
+            item_group: 'Lote 1',
+            description: 'Café em pó tradicional 250g',
+            category: 'AGUA_CAFE',
+            unit: 'Unidade',
+            original_quantity: 100,
+            unit_price: 20.0,
+            total_price: 2000.0,
+          },
+        ],
+      })
+      .expect(201);
+
+    const contractId = contractRes.body.id;
+    expect(contractRes.body.contract_number).toBe('012/2026');
+    expect(Number(contractRes.body.total_amount)).toBe(2000);
+
+    // 3. Consulta detalhes do contrato com itens e saldos
+    const detailRes = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(detailRes.body.contract.total_amount).toBe(2000);
+    expect(detailRes.body.contract.requested_amount).toBe(0);
+    expect(detailRes.body.contract.remaining_amount).toBe(2000);
+    expect(detailRes.body.items).toHaveLength(1);
+    expect(detailRes.body.items[0].original_quantity).toBe(100);
+    expect(detailRes.body.items[0].available_quantity).toBe(100);
+
+    // 4. Registra Termo Aditivo de prorrogação de vigência
+    const amendRes = await request(app)
+      .post(`/api/contracts/${contractId}/amendments`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        amendment_number: '1º Termo Aditivo',
+        amendment_type: 'PRAZO',
+        signing_date: '2027-03-01',
+        new_end_date: '2027-10-16',
+        justification: 'Prorrogação de vigência em conformidade com o art. 107 da Lei 14.133/2021',
+      })
+      .expect(201);
+
+    expect(amendRes.body.amendment_number).toBe('1º Termo Aditivo');
+
+    // 5. Verifica que vigência foi atualizada
+    const updatedRes = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(updatedRes.body.contract.end_date).toContain('2027-10-16');
+    expect(updatedRes.body.amendments).toHaveLength(1);
+  });
+
+  it('Cenário P: Controle de Saldo Contratual — Reserva de saldo, bloqueio de saldo insuficiente e cancelamento com liberação', async () => {
+    // 1. Cadastra contrato de 100 unidades de lâmpada LED a R$ 30,00 (Total R$ 3.000,00)
+    const ctRes = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '015/2026',
+        year: 2026,
+        supplier_id: mzSupplierId,
+        object: 'Aquisição de material de iluminação pública',
+        legal_framework: 'Lei 14.133/2021',
+        signing_date: '2026-05-01',
+        start_date: '2026-05-01',
+        end_date: '2027-05-01',
+        total_amount: 3000.0,
+        status: 'ATIVO',
+        items: [
+          {
+            item_code: '2-1',
+            description: 'Lâmpada LED 50W',
+            category: 'MATERIAL_ELETRICO',
+            unit: 'Unidade',
+            original_quantity: 100,
+            unit_price: 30.0,
+            total_price: 3000.0,
+          },
+        ],
+      })
+      .expect(201);
+
+    const contractId = ctRes.body.id;
+    const detail = await request(app).get(`/api/contracts/${contractId}`).set('Authorization', `Bearer ${adminToken}`);
+    const itemId = detail.body.items[0].id;
+    expect(detail.body.items[0].available_quantity).toBe(100);
+
+    // 2. Emite OF de 25 unidades (R$ 750,00)
+    const ofRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_id: contractId,
+        supplier_id: mzSupplierId,
+        issue_date: '2026-05-10',
+        municipality: 'Santana do Mundaú',
+        items: [{ contract_item_id: itemId, quantity: 25 }],
+      })
+      .expect(201);
+
+    expect(ofRes.body.status).toBe('AGUARDANDO_ASSINATURA');
+    expect(ofRes.body.total_value).toBe(750);
+
+    // 3. Verifica saldo: reservado = 25, disponível = 75
+    const check1 = await request(app).get(`/api/contracts/${contractId}`).set('Authorization', `Bearer ${adminToken}`);
+    expect(check1.body.items[0].reserved_quantity).toBe(25);
+    expect(check1.body.items[0].available_quantity).toBe(75);
+
+    // 4. Tentativa de emitir OF com 90 unidades (saldo disponível é 75) -> Deve falhar com 422
+    const failRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_id: contractId,
+        supplier_id: mzSupplierId,
+        issue_date: '2026-05-11',
+        municipality: 'Santana do Mundaú',
+        items: [{ contract_item_id: itemId, quantity: 90 }],
+      })
+      .expect(422);
+
+    expect(failRes.body.error.code).toBe('SALDO_CONTRATUAL_INSUFICIENTE');
+
+    // 5. Cancela a OF de 25 unidades antes de assinar -> Reserva deve ser liberada
+    const cancelRes = await request(app)
+      .post(`/api/supply-orders/${ofRes.body.id}/cancel`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        reason: 'Cancelamento por solicitação da Secretaria de Obras antes da emissão da via física',
+      })
+      .expect(200);
+
+    expect(cancelRes.body.supply_order.status).toBe('CANCELADA');
+
+    // 6. Verifica que a reserva foi liberada e o saldo disponível voltou para 100
+    const check2 = await request(app).get(`/api/contracts/${contractId}`).set('Authorization', `Bearer ${adminToken}`);
+    expect(check2.body.items[0].reserved_quantity).toBe(0);
+    expect(check2.body.items[0].available_quantity).toBe(100);
+  });
+
+  it('Cenário Q: Geração de PDF/XLSX da OF, upload de via física assinada e conversão idempotente de saldo', async () => {
+    // 1. Cadastra contrato com 100 refletores
+    const contractRes = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '077/2026',
+        year: 2026,
+        supplier_id: mzSupplierId,
+        object: 'Aquisição de refletores e luminárias LED para iluminação pública',
+        legal_framework: 'Lei 14.133/2021',
+        signing_date: '2026-05-01',
+        start_date: '2026-05-01',
+        end_date: '2027-05-01',
+        delivery_deadline_days: 15,
+        total_amount: 10000.0,
+        status: 'ATIVO',
+        items: [
+          {
+            item_code: '6-9',
+            description: 'Refletor holofote microled slim de 100w',
+            category: 'MATERIAL_ELETRICO',
+            unit: 'Unidade',
+            original_quantity: 100,
+            unit_price: 100.0,
+            total_price: 10000.0,
+          },
+        ],
+      })
+      .expect(201);
+
+    const contractId = contractRes.body.id;
+
+    // 1.1 Obtém itens do contrato
+    const contractDetail = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const itemId = contractDetail.body.items[0].id;
+
+    // 2. Emite OF de 30 unidades
+    const ofRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_id: contractId,
+        supplier_id: mzSupplierId,
+        issue_date: '2026-05-15',
+        municipality: 'Santana do Mundaú',
+        items: [{ contract_item_id: itemId, quantity: 30 }],
+      })
+      .expect(201);
+
+    const ofId = ofRes.body.id;
+    expect(ofRes.body.status).toBe('AGUARDANDO_ASSINATURA');
+    expect(ofRes.body.total_value).toBe(3000);
+
+    // 3. Testa download de PDF
+    const pdfRes = await request(app)
+      .get(`/api/supply-orders/${ofId}/pdf`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .buffer(true)
+      .parse((res, fn) => {
+        const data: Buffer[] = [];
+        res.on('data', (c) => data.push(c));
+        res.on('end', () => fn(null, Buffer.concat(data)));
+      })
+      .expect(200);
+
+    expect(pdfRes.headers['content-type']).toContain('application/pdf');
+    expect(pdfRes.body.length).toBeGreaterThan(500);
+    expect(pdfRes.body.toString('latin1', 0, 4)).toBe('%PDF');
+
+    // 4. Testa download de XLSX
+    const xlsxRes = await request(app)
+      .get(`/api/supply-orders/${ofId}/xlsx`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .buffer(true)
+      .parse((res, fn) => {
+        const data: Buffer[] = [];
+        res.on('data', (c) => data.push(c));
+        res.on('end', () => fn(null, Buffer.concat(data)));
+      })
+      .expect(200);
+
+    expect(xlsxRes.headers['content-type']).toContain('spreadsheetml');
+    expect(xlsxRes.body.length).toBeGreaterThan(500);
+
+    // 5. Upload da via física assinada escaneada
+    const fakeSignedPdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF');
+    const uploadRes = await request(app)
+      .post(`/api/supply-orders/${ofId}/upload-signed`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('file', fakeSignedPdf, 'OF-077-2026-ASSINADA.pdf')
+      .expect(200);
+
+    expect(uploadRes.body.success).toBe(true);
+    expect(uploadRes.body.supply_order.status).toBe('CONFIRMADA');
+    expect(uploadRes.body.supply_order.signed_at).toBeDefined();
+
+    // 6. Confere que a reserva de 30 foi convertida em baixa efetiva e saldo disponível é 70
+    const contractCheck = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(contractCheck.body.items[0].reserved_quantity).toBe(0);
+    expect(contractCheck.body.items[0].delivered_quantity).toBe(30);
+    expect(contractCheck.body.items[0].available_quantity).toBe(70);
+
+    // 7. Re-upload deve ser idempotente (sem duplicar baixa de saldo)
+    await request(app)
+      .post(`/api/supply-orders/${ofId}/upload-signed`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('file', fakeSignedPdf, 'OF-077-2026-ASSINADA-REUPLOAD.pdf')
+      .expect(200);
+
+    const contractCheck2 = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(contractCheck2.body.items[0].reserved_quantity).toBe(0);
+    expect(contractCheck2.body.items[0].delivered_quantity).toBe(30);
+    expect(contractCheck2.body.items[0].available_quantity).toBe(70);
+  });
+
+  it('Cenário R: Importação e parsing de PDF de contrato com extração de itens e validação de cálculos', async () => {
+    // 1. Cria um PDF em memória contendo texto contratual
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([600, 800]);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    const contractText = [
+      'ESTADO DE ALAGOAS - CONSÓRCIO INTERMUNICIPAL DA ZONA DA MATA ALAGOANA',
+      'CONTRATO ADMINISTRATIVO Nº 088/2026',
+      'CONTRATADA: MZ BERNARDI E CIA LTDA, inscrita no CNPJ sob o nº 02.418.125/0001-61',
+      'CLÁUSULA PRIMEIRA - OBJETO: CONTRATAÇÃO DE EMPRESA PARA FORNECIMENTO DE LÂMPADAS E MATERIAIS DE ILUMINAÇÃO',
+      'FUNDAMENTAÇÃO LEGAL: Lei 14.133/2021',
+      'CLÁUSULA SEGUNDA - VIGÊNCIA: O prazo de vigência será de 01/06/2026 até 01/06/2027',
+      'VALOR TOTAL: R$ 5.000,00',
+      '',
+      'ITENS CONTRATADOS:',
+      '1 | Lâmpada LED Tubular 18W | Unidade | 100 | 25,00 | 2.500,00',
+      '2 | Fita isolante 19mmx20m | Rolo | 50 | 50,00 | 2.500,00',
+    ].join('\n');
+
+    let y = 750;
+    for (const line of contractText.split('\n')) {
+      if (line.trim()) {
+        page.drawText(line, { x: 50, y, size: 10, font });
+      }
+      y -= 18;
+    }
+
+    const pdfBytes = await pdfDoc.save();
+
+    // 2. Faz o envio para o endpoint de parsing
+    const parseRes = await request(app)
+      .post('/api/contracts/parse-pdf')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('file', Buffer.from(pdfBytes), 'contrato-088-2026.pdf')
+      .expect(200);
+
+    expect(parseRes.body.success).toBe(true);
+    const data = parseRes.body.extracted_data;
+
+    expect(data.contract_number).toBe('088');
+    expect(data.year).toBe(2026);
+    expect(data.supplier_cnpj).toBe('02.418.125/0001-61');
+    expect(data.matched_supplier).toBeDefined();
+    expect(data.matched_supplier.id).toBe(mzSupplierId);
+    expect(data.items).toHaveLength(2);
+    expect(data.items[0].description).toBe('Lâmpada LED Tubular 18W');
+    expect(data.items[0].original_quantity).toBe(100);
+    expect(data.items[0].unit_price).toBe(25);
+    expect(data.items[0].total_price).toBe(2500);
+    expect(data.items[0].has_divergence).toBe(false);
   });
 });

@@ -7,6 +7,13 @@
  */
 
 export type * from './types.js';
+import type {
+  ContractStatus,
+  SupplyOrderStatus,
+  ProcurementModality,
+  ItemCategory,
+  AmendmentType,
+} from './types.js';
 
 // ---------------------------------------------------------------------------
 // Enums (espelham os tipos do PostgreSQL)
@@ -102,6 +109,64 @@ export const HISTORICAL_REPORT_LABELS: Record<HistoricalReportStatus, string> = 
   PAGA: 'Paga (confirmado)',
 };
 
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  EM_ELABORACAO: 'Em Elaboração',
+  AGUARDANDO_CONFERENCIA: 'Aguardando Conferência',
+  ATIVO: 'Ativo',
+  PROXIMO_VENCIMENTO: 'Próximo do Vencimento',
+  SUSPENSO: 'Suspenso',
+  ENCERRADO: 'Encerrado',
+  VENCIDO: 'Vencido',
+  RESCINDIDO: 'Rescindido',
+};
+
+export const CONTRACT_STATUS_TONES: Record<ContractStatus, 'yellow' | 'orange' | 'green' | 'gray' | 'red'> = {
+  EM_ELABORACAO: 'gray',
+  AGUARDANDO_CONFERENCIA: 'yellow',
+  ATIVO: 'green',
+  PROXIMO_VENCIMENTO: 'orange',
+  SUSPENSO: 'red',
+  ENCERRADO: 'gray',
+  VENCIDO: 'red',
+  RESCINDIDO: 'red',
+};
+
+export const SUPPLY_ORDER_STATUS_LABELS: Record<SupplyOrderStatus, string> = {
+  RASCUNHO: 'Rascunho',
+  AGUARDANDO_ASSINATURA: 'Aguardando Assinatura',
+  CONFIRMADA: 'Assinada / Confirmada',
+  PARCIALMENTE_ATENDIDA: 'Parcialmente Atendida',
+  CONCLUIDA: 'Concluída',
+  CANCELADA: 'Cancelada',
+};
+
+export const PROCUREMENT_MODALITY_LABELS: Record<ProcurementModality, string> = {
+  PREGAO_ELETRONICO: 'Pregão Eletrônico',
+  CONCORRENCIA: 'Concorrência',
+  DISPENSA: 'Dispensa de Licitação',
+  INEXIGIBILIDADE: 'Inexigibilidade',
+  OUTRA: 'Outro Procedimento',
+};
+
+export const ITEM_CATEGORY_LABELS: Record<ItemCategory, string> = {
+  MATERIAL_CONSUMO: 'Material de Consumo',
+  MATERIAL_EXPEDIENTE: 'Material de Expediente',
+  AGUA_CAFE: 'Água e Café',
+  MATERIAL_ELETRICO: 'Material Elétrico',
+  EPIS: 'Equipamentos de Proteção (EPIs)',
+  SERVICOS: 'Serviços',
+  LOCACAO: 'Locação de Veículos / Equipamentos',
+  OUTROS: 'Outros',
+};
+
+export const AMENDMENT_TYPE_LABELS: Record<AmendmentType, string> = {
+  PRAZO: 'Prorrogação de Prazo',
+  QUANTITATIVO_ACRESCIMO: 'Acréscimo de Quantitativo / Valor',
+  QUANTITATIVO_SUPRESSAO: 'Supressão de Quantitativo / Valor',
+  REAJUSTE: 'Reajuste / Repactuação de Preço',
+  OUTRO: 'Outro',
+};
+
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
   PROCESSO_CADASTRADO: 'Processo cadastrado',
   PROCESSO_ALTERADO: 'Processo alterado',
@@ -136,6 +201,11 @@ export const PERMISSIONS = [
   'reports.view',
   'processes.view',
   'processes.write',
+  'procurements.view',
+  'procurements.write',
+  'contracts.view',
+  'contracts.write',
+  'destinations.manage',
   'supply_orders.write',
   'invoices.view_drafts',
   'invoices.write',
@@ -157,6 +227,11 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'reports.view': 'Ver e exportar relatórios',
   'processes.view': 'Consultar processos',
   'processes.write': 'Cadastrar/editar processos',
+  'procurements.view': 'Consultar licitações e processos',
+  'procurements.write': 'Cadastrar/editar licitações e processos',
+  'contracts.view': 'Consultar contratos e saldos',
+  'contracts.write': 'Cadastrar/editar contratos, aditivos e itens',
+  'destinations.manage': 'Gerenciar municípios e destinatários',
   'supply_orders.write': 'Cadastrar/editar Ordens de Fornecimento',
   'invoices.view_drafts': 'Ver NFs ainda não encaminhadas',
   'invoices.write': 'Cadastrar/editar Notas Fiscais',
@@ -176,6 +251,8 @@ const PAGAMENTOS_BASE: Permission[] = [
   'dashboard.view',
   'reports.view',
   'processes.view',
+  'procurements.view',
+  'contracts.view',
   'payments.view',
   'payments.register',
   'historical.write',

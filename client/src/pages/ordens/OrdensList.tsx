@@ -1,7 +1,23 @@
 import React, { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Plus, Search, Building2, Calendar, Eye, ArrowLeft, Trash2, Pencil } from 'lucide-react';
+import {
+  FileText,
+  Plus,
+  Search,
+  Building2,
+  Calendar,
+  Eye,
+  ArrowLeft,
+  Trash2,
+  Pencil,
+  Download,
+  FileSpreadsheet,
+  UploadCloud,
+  CheckCircle2,
+  Clock,
+  Layers,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api.js';
 import type { SupplyOrderRow } from '@cozam/shared';
@@ -13,6 +29,7 @@ import { FileDropzone } from '../../components/ui/FileDropzone.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
 import { EditSupplyOrderModal } from '../../components/ordens/EditSupplyOrderModal.js';
+import { UploadSignedOfModal } from '../../components/orders/UploadSignedOfModal.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 
 export function OrdensList() {
@@ -72,11 +89,18 @@ export function OrdensList() {
         </div>
 
         {canWrite && (
-          <Link to="/lancamento">
-            <Button variant="primary" icon={<Plus className="w-4 h-4" />}>
-              Nova Ordem de Fornecimento
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/lancamento">
+              <Button variant="secondary" icon={<Plus className="w-4 h-4" />}>
+                Lançamento Rápido
+              </Button>
+            </Link>
+            <Link to="/ordens/nova">
+              <Button variant="primary" icon={<FileText className="w-4 h-4" />}>
+                Emitir Nova OF de Contrato
+              </Button>
+            </Link>
+          </div>
         )}
       </div>
 
@@ -249,6 +273,7 @@ export function OrdemDetail() {
   const [replaceModalOpen, setReplaceModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [signedModalOpen, setSignedModalOpen] = useState(false);
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
   const [replaceReason, setReplaceReason] = useState('');
   const [replacing, setReplacing] = useState(false);
@@ -257,7 +282,8 @@ export function OrdemDetail() {
     queryKey: ['supply-order-detail', id],
     queryFn: () =>
       api.get<{
-        supply_order: SupplyOrderRow;
+        supply_order: SupplyOrderRow & { status?: string; contract_number?: string; tracking_code?: string };
+        items?: any[];
         documents: any[];
         invoices: any[];
       }>(`/supply-orders/${id}`),
@@ -305,7 +331,7 @@ export function OrdemDetail() {
     return <div className="text-center py-12 text-xs text-slate-500">Carregando OF...</div>;
   }
 
-  const { supply_order, documents, invoices } = data;
+  const { supply_order, items = [], documents, invoices } = data;
   const currentDoc = documents.find((d) => d.is_current);
 
   return (
@@ -318,11 +344,30 @@ export function OrdemDetail() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
-              OF nº {supply_order.of_number}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
+                OF nº {supply_order.of_number}
+              </h1>
+              <span
+                className={`inline-flex items-center gap-1 text-2xs font-bold px-2.5 py-0.5 rounded-full ${
+                  supply_order.status === 'CONFIRMADA'
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    : supply_order.status === 'CANCELADA'
+                    ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                    : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                }`}
+              >
+                {supply_order.status === 'CONFIRMADA' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                ) : (
+                  <Clock className="w-3.5 h-3.5" />
+                )}
+                {supply_order.status || 'CONFIRMADA'}
+              </span>
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Fornecedor: <span className="font-semibold text-slate-800 dark:text-slate-200">{supply_order.supplier_name}</span> · Processo: {supply_order.process_number}
+              Fornecedor: <span className="font-semibold text-slate-800 dark:text-slate-200">{supply_order.supplier_name}</span>
+              {supply_order.contract_number && ` · Contrato: ${supply_order.contract_number}`}
               {supply_order.municipality && (
                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-2xs font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                   📍 {supply_order.municipality}
@@ -333,6 +378,26 @@ export function OrdemDetail() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Ações de Download Oficial */}
+          <a href={`/api/supply-orders/${id}/pdf`} target="_blank" rel="noreferrer">
+            <Button variant="secondary" size="sm" icon={<Download className="w-3.5 h-3.5 text-indigo-600" />}>
+              PDF Oficial
+            </Button>
+          </a>
+          <a href={`/api/supply-orders/${id}/xlsx`} target="_blank" rel="noreferrer">
+            <Button variant="secondary" size="sm" icon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}>
+              Planilha XLSX
+            </Button>
+          </a>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<UploadCloud className="w-3.5 h-3.5" />}
+            onClick={() => setSignedModalOpen(true)}
+          >
+            Anexar Via Assinada
+          </Button>
+
           {profile?.role === 'admin' && (
             <>
               <Button
@@ -357,11 +422,77 @@ export function OrdemDetail() {
 
           <Link to="/lancamento">
             <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}>
-              Nova Nota Fiscal para esta OF
+              Nova NF para esta OF
             </Button>
           </Link>
         </div>
       </div>
+
+      {/* Banner de Aguardando Assinatura */}
+      {supply_order.status === 'AGUARDANDO_ASSINATURA' && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold">Aguardando Coleta de Assinatura</p>
+              <p className="text-2xs text-amber-700 dark:text-amber-300 mt-0.5">
+                Faça o download do PDF oficial, colete as assinaturas do Supervisor e Fornecedor e anexe o documento digitalizado para confirmar a baixa no saldo do contrato.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<UploadCloud className="w-3.5 h-3.5" />}
+            onClick={() => setSignedModalOpen(true)}
+            className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            Anexar Via Assinada Agora
+          </Button>
+        </div>
+      )}
+
+      {/* Tabela de Itens Solicitados nesta OF */}
+      {items.length > 0 && (
+        <Card title={`Itens Solicitados nesta Ordem de Fornecimento (${items.length})`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider text-2xs">
+                  <th className="py-2.5 px-3 w-16">Item</th>
+                  <th className="py-2.5 px-3">Descrição do Material</th>
+                  <th className="py-2.5 px-3 w-20 text-center">UND</th>
+                  <th className="py-2.5 px-3 w-24 text-center">Qtd Solicitada</th>
+                  <th className="py-2.5 px-3 w-28 text-right">Valor Unitário</th>
+                  <th className="py-2.5 px-3 w-32 text-right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {items.map((it: any) => (
+                  <tr key={it.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                    <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300">
+                      {it.item_code}
+                    </td>
+                    <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-white">
+                      {it.description}
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-slate-500">{it.unit}</td>
+                    <td className="py-2.5 px-3 text-center font-bold text-slate-800 dark:text-slate-200">
+                      {it.quantity}
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-slate-600 dark:text-slate-300">
+                      {formatBRL(it.unit_price)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-white">
+                      {formatBRL(it.total_price)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Cartão de Arquivo da OF */}
       <Card title="Arquivo Oficial da Ordem de Fornecimento (PDF)">
@@ -517,6 +648,13 @@ export function OrdemDetail() {
         onClose={() => setEditModalOpen(false)}
         onSuccess={refetch}
         supplyOrder={supply_order}
+      />
+
+      <UploadSignedOfModal
+        isOpen={signedModalOpen}
+        onClose={() => setSignedModalOpen(false)}
+        supplyOrderId={id || supply_order.id}
+        ofNumber={supply_order.of_number}
       />
     </div>
   );
