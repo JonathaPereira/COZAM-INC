@@ -1090,4 +1090,97 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     expect(repRes.body.columns.some((c: any) => c.key === 'tax_amount')).toBe(true);
     expect(repRes.body.columns.some((c: any) => c.key === 'net_amount')).toBe(true);
   });
+
+  it('Cenário O: Gestão de Contratos — Cadastro de processo licitatório, contrato com itens, saldo inicial e aditivo de prazo', async () => {
+    // 1. Cadastra processo licitatório
+    const procRes = await request(app)
+      .post('/api/procurement-processes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        process_number: 'PROC-LIC-002/2026',
+        year: 2026,
+        bidding_number: 'Pregão Eletrônico 002/2026',
+        modality: 'PREGAO_ELETRONICO',
+        legal_framework: 'Lei 14.133/2021',
+        object: 'Contratação para aquisição de material elétrico, EPIs e suprimentos',
+        opening_date: '2026-03-10',
+        homologation_date: '2026-04-01',
+      })
+      .expect(201);
+
+    expect(procRes.body.bidding_number).toBe('Pregão Eletrônico 002/2026');
+
+    // 2. Cadastra contrato vinculado ao processo e fornecedor MZ Bernardi
+    const contractRes = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '012/2026',
+        year: 2026,
+        procurement_id: procRes.body.id,
+        supplier_id: mzSupplierId,
+        object: 'Contratação para fornecimento de café e materiais de consumo',
+        legal_framework: 'Lei 14.133/2021',
+        signing_date: '2026-04-16',
+        start_date: '2026-04-16',
+        end_date: '2027-04-16',
+        delivery_deadline_days: 15,
+        total_amount: 2000.0,
+        status: 'ATIVO',
+        items: [
+          {
+            item_code: '1-1',
+            item_group: 'Lote 1',
+            description: 'Café em pó tradicional 250g',
+            category: 'AGUA_CAFE',
+            unit: 'Unidade',
+            original_quantity: 100,
+            unit_price: 20.0,
+            total_price: 2000.0,
+          },
+        ],
+      })
+      .expect(201);
+
+    const contractId = contractRes.body.id;
+    expect(contractRes.body.contract_number).toBe('012/2026');
+    expect(Number(contractRes.body.total_amount)).toBe(2000);
+
+    // 3. Consulta detalhes do contrato com itens e saldos
+    const detailRes = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(detailRes.body.contract.total_amount).toBe(2000);
+    expect(detailRes.body.contract.requested_amount).toBe(0);
+    expect(detailRes.body.contract.remaining_amount).toBe(2000);
+    expect(detailRes.body.items).toHaveLength(1);
+    expect(detailRes.body.items[0].original_quantity).toBe(100);
+    expect(detailRes.body.items[0].available_quantity).toBe(100);
+
+    // 4. Registra Termo Aditivo de prorrogação de vigência
+    const amendRes = await request(app)
+      .post(`/api/contracts/${contractId}/amendments`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        amendment_number: '1º Termo Aditivo',
+        amendment_type: 'PRAZO',
+        signing_date: '2027-03-01',
+        new_end_date: '2027-10-16',
+        justification: 'Prorrogação de vigência em conformidade com o art. 107 da Lei 14.133/2021',
+      })
+      .expect(201);
+
+    expect(amendRes.body.amendment_number).toBe('1º Termo Aditivo');
+
+    // 5. Verifica que vigência foi atualizada
+    const updatedRes = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(updatedRes.body.contract.end_date).toContain('2027-10-16');
+    expect(updatedRes.body.amendments).toHaveLength(1);
+  });
 });

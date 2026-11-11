@@ -7,6 +7,13 @@
  */
 
 export type * from './types.js';
+import type {
+  ContractStatus,
+  SupplyOrderStatus,
+  ProcurementModality,
+  ItemCategory,
+  AmendmentType,
+} from './types.js';
 
 // ---------------------------------------------------------------------------
 // Enums (espelham os tipos do PostgreSQL)
@@ -194,6 +201,11 @@ export const PERMISSIONS = [
   'reports.view',
   'processes.view',
   'processes.write',
+  'procurements.view',
+  'procurements.write',
+  'contracts.view',
+  'contracts.write',
+  'destinations.manage',
   'supply_orders.write',
   'invoices.view_drafts',
   'invoices.write',
@@ -215,6 +227,11 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'reports.view': 'Ver e exportar relatórios',
   'processes.view': 'Consultar processos',
   'processes.write': 'Cadastrar/editar processos',
+  'procurements.view': 'Consultar licitações e processos',
+  'procurements.write': 'Cadastrar/editar licitações e processos',
+  'contracts.view': 'Consultar contratos e saldos',
+  'contracts.write': 'Cadastrar/editar contratos, aditivos e itens',
+  'destinations.manage': 'Gerenciar municípios e destinatários',
   'supply_orders.write': 'Cadastrar/editar Ordens de Fornecimento',
   'invoices.view_drafts': 'Ver NFs ainda não encaminhadas',
   'invoices.write': 'Cadastrar/editar Notas Fiscais',
@@ -234,6 +251,8 @@ const PAGAMENTOS_BASE: Permission[] = [
   'dashboard.view',
   'reports.view',
   'processes.view',
+  'procurements.view',
+  'contracts.view',
   'payments.view',
   'payments.register',
   'historical.write',

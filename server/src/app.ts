@@ -20,6 +20,9 @@ import { reportsRouter } from './routes/reports.js';
 import { usersRouter } from './routes/users.js';
 import { auditRouter } from './routes/audit.js';
 import { passwordResetsRouter } from './routes/password-resets.js';
+import { destinationsRouter } from './routes/destinations.js';
+import { procurementRouter } from './routes/procurement-processes.js';
+import { contractsRouter } from './routes/contracts.js';
 
 export function createApp(): Express {
   const app = express();
@@ -75,6 +78,9 @@ export function createApp(): Express {
   app.use('/api', usersRouter);
   app.use('/api', auditRouter);
   app.use('/api', passwordResetsRouter);
+  app.use('/api', destinationsRouter);
+  app.use('/api', procurementRouter);
+  app.use('/api', contractsRouter);
 
   // Tratamento de erros da API
   app.use('/api', errorHandler);
