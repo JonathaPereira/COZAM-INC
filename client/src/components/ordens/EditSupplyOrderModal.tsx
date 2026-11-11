@@ -7,6 +7,7 @@ import { Modal } from '../ui/Modal.js';
 import { Button } from '../ui/Button.js';
 import { Input, Textarea } from '../ui/Input.js';
 import { CurrencyInput } from '../ui/CurrencyInput.js';
+import { MunicipalitySelect } from '../ui/MunicipalitySelect.js';
 
 interface EditSupplyOrderModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export function EditSupplyOrderModal({
   const [ofNumber, setOfNumber] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [totalValue, setTotalValue] = useState<number | null>(null);
+  const [municipality, setMunicipality] = useState('');
   const [notes, setNotes] = useState('');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
@@ -33,6 +35,7 @@ export function EditSupplyOrderModal({
       setOfNumber(supplyOrder.of_number || '');
       setIssueDate(supplyOrder.issue_date ? supplyOrder.issue_date.slice(0, 10) : '');
       setTotalValue(supplyOrder.total_value !== null ? Number(supplyOrder.total_value) : null);
+      setMunicipality(supplyOrder.municipality || '');
       setNotes(supplyOrder.notes || '');
       setReason('');
     }
@@ -57,6 +60,7 @@ export function EditSupplyOrderModal({
         of_number: ofNumber.trim(),
         issue_date: issueDate,
         total_value: totalValue,
+        municipality: municipality.trim() || null,
         notes: notes.trim() || null,
         reason: reason.trim() || undefined,
       });
@@ -121,6 +125,12 @@ export function EditSupplyOrderModal({
             />
           </div>
         </div>
+
+        <MunicipalitySelect
+          value={municipality}
+          onChange={setMunicipality}
+          label="Município Consorciado"
+        />
 
         <div>
           <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">

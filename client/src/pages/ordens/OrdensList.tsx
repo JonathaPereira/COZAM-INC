@@ -139,9 +139,9 @@ export function OrdensList() {
                   <tr key={o.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="py-3 px-4">
                       <span className="font-bold text-slate-900 dark:text-slate-100">{o.of_number}</span>
-                      {o.municipalities && (
+                      {(o.municipality || o.municipalities) && (
                         <span className="block mt-0.5 text-2xs font-semibold text-emerald-700 dark:text-emerald-400">
-                          📍 {o.municipalities}
+                          📍 {o.municipality || o.municipalities}
                         </span>
                       )}
                     </td>
@@ -323,6 +323,11 @@ export function OrdemDetail() {
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Fornecedor: <span className="font-semibold text-slate-800 dark:text-slate-200">{supply_order.supplier_name}</span> · Processo: {supply_order.process_number}
+              {supply_order.municipality && (
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-2xs font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  📍 {supply_order.municipality}
+                </span>
+              )}
             </p>
           </div>
         </div>

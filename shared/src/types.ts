@@ -74,6 +74,7 @@ export interface ProcessRow {
   invoices_total: number;
   paid_total: number;
   supplier_names: string[];
+  municipalities?: string | null;
 }
 
 export interface SupplyOrderRow {

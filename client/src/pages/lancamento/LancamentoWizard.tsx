@@ -60,6 +60,7 @@ export function LancamentoWizard() {
   const [ofNumber, setOfNumber] = useState('');
   const [ofDate, setOfDate] = useState(new Date().toISOString().slice(0, 10));
   const [ofTotalValue, setOfTotalValue] = useState<number | null>(null);
+  const [ofMunicipality, setOfMunicipality] = useState('Santana do Mundaú');
   const [ofNotes, setOfNotes] = useState('');
   const [ofFile, setOfFile] = useState<File | null>(null);
 
@@ -147,6 +148,7 @@ export function LancamentoWizard() {
         ofFormData.append('of_number', ofNumber.trim());
         ofFormData.append('issue_date', ofDate);
         if (ofTotalValue !== null) ofFormData.append('total_value', String(ofTotalValue));
+        if (ofMunicipality.trim()) ofFormData.append('municipality', ofMunicipality.trim());
         if (ofNotes.trim()) ofFormData.append('notes', ofNotes.trim());
         if (ofFile) ofFormData.append('file', ofFile);
 
@@ -428,6 +430,16 @@ export function LancamentoWizard() {
                     />
                   </div>
                 </div>
+
+                <MunicipalitySelect
+                  value={ofMunicipality}
+                  onChange={(val) => {
+                    setOfMunicipality(val);
+                    setMunicipality(val);
+                  }}
+                  label="Município Consorciado da OF"
+                  required
+                />
 
                 <Textarea
                   label="Observações da OF (opcional)"

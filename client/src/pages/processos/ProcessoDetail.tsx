@@ -116,11 +116,16 @@ export function ProcessoDetail() {
               className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-slate-900 text-sm">OF nº {ofItem.of_number}</span>
                   <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">
                     {ofItem.supplier_name}
                   </span>
+                  {ofItem.municipality && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">
+                      📍 {ofItem.municipality}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   Emissão: {formatDateBR(ofItem.issue_date)} · Valor previsto: {formatBRL(ofItem.total_value)} · {ofItem.invoices_count} NFs vinculadas

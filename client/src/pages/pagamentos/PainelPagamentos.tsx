@@ -443,11 +443,27 @@ export function HistoricoPagamentos() {
                 data.data.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">{formatDateBR(p.payment_date)}</td>
-                    <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">{p.invoice_number}</td>
+                    <td className="py-3 px-4">
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{p.invoice_number}</span>
+                      {p.municipality && (
+                        <span className="block mt-0.5 text-2xs font-semibold text-emerald-700 dark:text-emerald-400">
+                          📍 {p.municipality}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{p.supplier_name}</td>
                     <td className="py-3 px-4"><ModalityBadge modality={p.modality} /></td>
-                    <td className="py-3 px-4 text-right font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                      {formatBRL(p.amount)}
+                    <td className="py-3 px-4 text-right tabular-nums">
+                      <div className="font-bold text-emerald-700 dark:text-emerald-400">
+                        {formatBRL(p.amount)}
+                      </div>
+                      {p.tax_amount && p.tax_amount > 0 ? (
+                        <div className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Líq: {formatBRL(p.net_amount)} <span className="text-amber-600 dark:text-amber-400">(IRRF: {formatBRL(p.tax_amount)})</span>
+                        </div>
+                      ) : p.is_tax_exempt ? (
+                        <div className="text-2xs text-slate-400">Sem retenção</div>
+                      ) : null}
                     </td>
                     <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{p.created_by_name || '—'}</td>
                     <td className="py-3 px-4 text-2xs text-slate-500 dark:text-slate-400">{formatDateTimeBR(p.created_at)}</td>

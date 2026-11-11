@@ -97,8 +97,13 @@ export function ProcessosList() {
                   <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">{p.process_number}</td>
                     <td className="py-3 px-4 text-slate-600 dark:text-slate-400">{formatDateBR(p.registered_at)}</td>
-                    <td className="py-3 px-4 text-slate-700 dark:text-slate-300 max-w-xs truncate" title={p.description}>
-                      {p.description}
+                    <td className="py-3 px-4 text-slate-700 dark:text-slate-300 max-w-xs" title={p.description}>
+                      <div className="truncate">{p.description}</div>
+                      {p.municipalities && (
+                        <span className="inline-flex items-center gap-1 mt-0.5 text-2xs font-semibold text-emerald-700 dark:text-emerald-400">
+                          📍 {p.municipalities}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-slate-600">
                       {p.supplier_names && p.supplier_names.length > 0
