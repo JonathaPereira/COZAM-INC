@@ -13,9 +13,14 @@ async function bootstrap() {
     console.log('[COZAM] Verificando e aplicando migrações do banco de dados...');
     await runMigrations(pool);
     console.log('[COZAM] Migrações concluídas com sucesso.');
-  } catch (err) {
-    console.error('[COZAM] Erro crítico nas migrações:', err);
-    process.exit(1);
+  } catch (err: any) {
+    console.error('[COZAM] Erro crítico nas migrações:', err?.message || err);
+    if (err?.stack) console.error(err.stack);
+    if (config.isProduction) {
+      console.warn('[COZAM] AVISO: Continuando inicialização do servidor HTTP para manter a aplicação online...');
+    } else {
+      process.exit(1);
+    }
   }
 
   const app = createApp();

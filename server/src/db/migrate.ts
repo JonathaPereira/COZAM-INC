@@ -125,8 +125,11 @@ export async function runMigrations(pool: DbPool): Promise<void> {
         await client.exec(sql);
         await client.query('insert into public._migrations (name) values ($1)', [file]);
         await client.exec('commit');
-      } catch (err) {
+      } catch (err: any) {
         await client.exec('rollback');
+        console.error(`[COZAM] FALHA AO EXECUTAR MIGRATION ${file}:`, err?.message || err);
+        if (err?.detail) console.error(`[COZAM] Detalhes do erro: ${err.detail}`);
+        if (err?.hint) console.error(`[COZAM] Dica: ${err.hint}`);
         throw new Error(`Falha na migration ${file}: ${(err as Error).message}`);
       }
     }

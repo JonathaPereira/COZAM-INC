@@ -15,16 +15,21 @@ ALTER TABLE public.suppliers
   ADD COLUMN IF NOT EXISTS contact_person text,
   ADD COLUMN IF NOT EXISTS notes text;
 
--- Seed / atualiza dados oficiais de MZ Bernardi
-UPDATE public.suppliers 
-   SET cnpj = '02.418.125/0001-61', 
-       legal_name = 'MZ BERNARDI E CIA LTDA',
-       street = 'Rua Tenente Paulo Winteler',
-       number = '258 Qd. 12',
-       neighborhood = 'Centro',
-       city = 'Satuba',
-       state = 'AL',
-       zip_code = '57.120-000',
-       phone = '(82) 3037-2323',
-       email = 'mzbernardi2016@gmail.com'
- WHERE name = 'MZ Bernardi' AND cnpj IS NULL;
+-- Seed / atualiza dados oficiais de MZ Bernardi com proteção contra falha
+DO $$
+BEGIN
+  UPDATE public.suppliers 
+     SET cnpj = '02.418.125/0001-61', 
+         legal_name = 'MZ BERNARDI E CIA LTDA',
+         street = 'Rua Tenente Paulo Winteler',
+         number = '258 Qd. 12',
+         neighborhood = 'Centro',
+         city = 'Satuba',
+         state = 'AL',
+         zip_code = '57.120-000',
+         phone = '(82) 3037-2323',
+         email = 'mzbernardi2016@gmail.com'
+   WHERE name = 'MZ Bernardi' AND cnpj IS NULL;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;

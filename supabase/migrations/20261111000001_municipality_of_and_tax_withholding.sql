@@ -20,14 +20,20 @@ ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS tax_amount numeric(14,2) DE
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS net_amount numeric(14,2);
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS is_tax_exempt boolean DEFAULT false;
 
--- Atualizar registros existentes de pagamentos de forma consistente:
-UPDATE public.payments
-SET gross_amount = amount,
-    net_amount = amount,
-    tax_amount = 0.00,
-    tax_rate = 0.0000,
-    is_tax_exempt = true
-WHERE gross_amount IS NULL;
+-- Atualizar registros existentes de pagamentos de forma consistente e segura:
+DO $$
+BEGIN
+  UPDATE public.payments
+  SET gross_amount = amount,
+      net_amount = amount,
+      tax_amount = 0.00,
+      tax_rate = 0.0000,
+      is_tax_exempt = true
+  WHERE gross_amount IS NULL
+    AND status <> 'CANCELADO';
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 -- 4. Recriar visão v_payments de forma segura (drop e create)
 DROP VIEW IF EXISTS public.v_payments;
