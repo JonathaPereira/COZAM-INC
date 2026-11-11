@@ -54,13 +54,26 @@ function parsePtBrNumber(str: string): number {
 }
 
 function parsePtBrDate(str: string): string | undefined {
-  // Matches dd/mm/yyyy
-  const m = str.match(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/);
+  if (!str) return undefined;
+  // Matches dd/mm/yyyy isolado, evitando fragmentos de dotações orçamentárias (ex: 3.3.3.9.0.30.99.99.00.0000)
+  const m = str.match(/(?<![\d\.])(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})(?![\d\.])/);
   if (m) {
-    const dia = m[1].padStart(2, '0');
-    const mes = m[2].padStart(2, '0');
-    const ano = m[3];
-    return `${ano}-${mes}-${dia}`;
+    const dia = parseInt(m[1], 10);
+    const mes = parseInt(m[2], 10);
+    const ano = parseInt(m[3], 10);
+
+    if (dia < 1 || dia > 31 || mes < 1 || mes > 12 || ano < 2000 || ano > 2100) {
+      return undefined;
+    }
+
+    const d = new Date(Date.UTC(ano, mes - 1, dia));
+    if (d.getUTCFullYear() !== ano || d.getUTCMonth() !== mes - 1 || d.getUTCDate() !== dia) {
+      return undefined;
+    }
+
+    const diaStr = String(dia).padStart(2, '0');
+    const mesStr = String(mes).padStart(2, '0');
+    return `${ano}-${mesStr}-${diaStr}`;
   }
   return undefined;
 }
@@ -338,21 +351,82 @@ export async function parseContractPdf(buffer: Buffer): Promise<ExtractedContrac
 
   // 6. Dates & Vigência
   const datesFound: string[] = [];
-  const dateRegex = /\b(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{4})\b/g;
+  const dateRegex = /(?<![\d\.])(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{4})(?![\d\.])/g;
   let dMatch;
   while ((dMatch = dateRegex.exec(text)) !== null) {
+    const prefix = text.slice(Math.max(0, dMatch.index - 30), dMatch.index);
+    if (/lei|decreto|portaria|resolu[çc][ãa]o/i.test(prefix)) continue;
+
     const iso = parsePtBrDate(dMatch[1]);
     if (iso && !datesFound.includes(iso)) {
       datesFound.push(iso);
     }
   }
 
+  const ptMonths: Record<string, string> = {
+    janeiro: '01', fevereiro: '02', 'março': '03', marco: '03', abril: '04',
+    maio: '05', junho: '06', julho: '07', agosto: '08', setembro: '09',
+    outubro: '10', novembro: '11', dezembro: '12',
+  };
+
+  // 6.1. Busca explícita na linha de encerramento / assinatura (ex: "Maceió/AL, ______ de novembro de 2026")
+  const signMatch = text.match(/(?:[a-zA-ZÀ-ÿ\s]+(?:\/[A-Z]{2})?)\s*,\s*(\d{1,2}|1º|_+)\s+de\s+(janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+(\d{4})/i);
+  if (signMatch) {
+    const rawDay = signMatch[1].replace('º', '').replace(/_+/g, '').trim();
+    const dia = rawDay ? parseInt(rawDay, 10) : 1;
+    const mStr = signMatch[2].toLowerCase();
+    const mes = ptMonths[mStr];
+    const ano = parseInt(signMatch[3], 10);
+    if (mes && dia >= 1 && dia <= 31 && ano >= 2000 && ano <= 2100) {
+      const iso = `${ano}-${mes}-${String(dia).padStart(2, '0')}`;
+      if (!datesFound.includes(iso)) {
+        datesFound.unshift(iso); // Prioridade máxima para data de celebração do contrato
+      }
+    }
+  }
+
+  // 6.2. Busca datas textuais no corpo do contrato (exceto citações legais)
+  const ptDateRegex = /(?:em\s+|de\s+)?(\d{1,2}|1º)\s+de\s+(janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+(\d{4})/gi;
+  let ptm;
+  while ((ptm = ptDateRegex.exec(text)) !== null) {
+    const prefix = text.slice(Math.max(0, ptm.index - 40), ptm.index);
+    if (/lei|decreto|portaria|resolu[çc][ãa]o/i.test(prefix)) continue;
+
+    const rawDay = ptm[1].replace('º', '');
+    const dia = parseInt(rawDay, 10);
+    const mStr = ptm[2].toLowerCase();
+    const mes = ptMonths[mStr];
+    const ano = parseInt(ptm[3], 10);
+    if (mes && dia >= 1 && dia <= 31 && ano >= 2000 && ano <= 2100) {
+      const iso = `${ano}-${mes}-${String(dia).padStart(2, '0')}`;
+      if (!datesFound.includes(iso)) {
+        datesFound.push(iso);
+      }
+    }
+  }
+
+  // 6.3. Detecção da duração da vigência em meses (ex: "prazo de vigência da contratação é de 12 (doze) meses")
+  let vigenciaMonths = 12;
+  const vigMatch = text.match(/vig[êe]ncia[\s\S]{1,100}?(\d{1,3})\s*(?:\([a-zA-Z\s]+\))?\s*meses/i);
+  if (vigMatch) {
+    const parsedMonths = parseInt(vigMatch[1], 10);
+    if (parsedMonths > 0 && parsedMonths <= 120) {
+      vigenciaMonths = parsedMonths;
+    }
+  }
+
   if (datesFound.length > 0) {
     result.signing_date = datesFound[0];
     result.start_date = datesFound[0];
-    if (datesFound.length > 1) {
-      result.end_date = datesFound[datesFound.length - 1];
-    }
+
+    // Calcula end_date somando a vigência em meses a partir de start_date
+    const [sY, sM, sD] = result.start_date.split('-').map(Number);
+    const startObj = new Date(Date.UTC(sY, sM - 1, sD));
+    startObj.setUTCMonth(startObj.getUTCMonth() + vigenciaMonths);
+    const eY = startObj.getUTCFullYear();
+    const eM = String(startObj.getUTCMonth() + 1).padStart(2, '0');
+    const eD = String(startObj.getUTCDate()).padStart(2, '0');
+    result.end_date = `${eY}-${eM}-${eD}`;
   }
 
   // 7. Extração estruturada de itens em tabelas de licitações e contratos públicos

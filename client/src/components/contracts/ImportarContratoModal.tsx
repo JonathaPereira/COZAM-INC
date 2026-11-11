@@ -169,8 +169,33 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
       return;
     }
 
-    if (!extractedData.contract_number || !extractedData.start_date || !extractedData.end_date) {
-      toast.error('Preencha os campos obrigatórios (Número e Vigência).');
+    const sanitizeDate = (d?: string) => {
+      if (!d || typeof d !== 'string') return null;
+      const m = d.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return null;
+      const y = parseInt(m[1], 10);
+      const mon = parseInt(m[2], 10);
+      const day = parseInt(m[3], 10);
+      if (y < 2000 || y > 2100 || mon < 1 || mon > 12 || day < 1 || day > 31) return null;
+      return `${y}-${String(mon).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    };
+
+    const validStartDate = sanitizeDate(extractedData.start_date);
+    const validEndDate = sanitizeDate(extractedData.end_date);
+    const validSigningDate = sanitizeDate(extractedData.signing_date) || validStartDate || new Date().toISOString().slice(0, 10);
+
+    if (!extractedData.contract_number) {
+      toast.error('Informe o número do contrato.');
+      return;
+    }
+
+    if (!validStartDate || !validEndDate) {
+      toast.error('Informe datas válidas de início e fim de vigência.');
+      return;
+    }
+
+    if (new Date(validEndDate) < new Date(validStartDate)) {
+      toast.error('A data final de vigência não pode ser anterior à data inicial.');
       return;
     }
 
@@ -191,9 +216,9 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
       supplier_id: extractedData.matched_supplier.id,
       object: extractedData.object || 'Contrato importado via PDF',
       legal_framework: extractedData.legal_framework || 'Lei 14.133/2021',
-      signing_date: extractedData.signing_date || new Date().toISOString().slice(0, 10),
-      start_date: extractedData.start_date,
-      end_date: extractedData.end_date,
+      signing_date: validSigningDate,
+      start_date: validStartDate,
+      end_date: validEndDate,
       delivery_deadline_days: Number(extractedData.delivery_deadline_days || 15),
       total_amount: Number(extractedData.total_amount || 0),
       status: 'ATIVO',

@@ -9,6 +9,13 @@ import { AppError } from '../middleware/errors.js';
 
 export const contractsRouter = Router();
 
+const isoDateSchema = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de data inválido (AAAA-MM-DD).').refine((val) => {
+  const [y, m, d] = val.split('-').map(Number);
+  if (y < 2000 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const dateObj = new Date(Date.UTC(y, m - 1, d));
+  return dateObj.getUTCFullYear() === y && dateObj.getUTCMonth() === m - 1 && dateObj.getUTCDate() === d;
+}, 'Data de calendário inválida.');
+
 const contractItemSchema = z.object({
   item_code: z.string().trim().min(1, 'Código do item é obrigatório.'),
   item_group: z.string().trim().optional().nullable(),
@@ -39,9 +46,9 @@ const createContractSchema = z.object({
   supplier_id: z.string().uuid('Fornecedor é obrigatório.'),
   object: z.string().trim().min(1, 'Objeto contratual é obrigatório.'),
   legal_framework: z.string().trim().default('Lei 14.133/2021'),
-  signing_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de celebração inválida.'),
-  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inicial de vigência inválida.'),
-  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data final de vigência inválida.'),
+  signing_date: isoDateSchema.optional().nullable(),
+  start_date: isoDateSchema,
+  end_date: isoDateSchema,
   delivery_deadline_days: z.coerce.number().int().min(1).default(15),
   total_amount: z.coerce.number().positive('Valor total contratado deve ser positivo.'),
   status: z.enum([
@@ -317,6 +324,8 @@ contractsRouter.post('/contracts', authenticate, requirePermission('contracts.wr
           }
         }
 
+        const signingDate = data.signing_date || data.start_date;
+
         const insContract = await client.query(
           `INSERT INTO public.contracts 
            (contract_number, year, procurement_id, supplier_id, object, legal_framework, signing_date, start_date, end_date, delivery_deadline_days, total_amount, status, created_by)
@@ -329,7 +338,7 @@ contractsRouter.post('/contracts', authenticate, requirePermission('contracts.wr
             data.supplier_id,
             data.object,
             data.legal_framework,
-            data.signing_date,
+            signingDate,
             data.start_date,
             data.end_date,
             data.delivery_deadline_days,
