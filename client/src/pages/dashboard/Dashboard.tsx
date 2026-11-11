@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   FolderKanban,
@@ -14,6 +15,9 @@ import {
   BarChart2,
   Calendar,
   Building2,
+  ScrollText,
+  AlertTriangle,
+  ArrowRight,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -65,6 +69,19 @@ export function Dashboard() {
         status,
       }),
   });
+
+  // Consulta contratos para indicadores de saldo contratual
+  const { data: contracts = [] } = useQuery<any[]>({
+    queryKey: ['contracts-dashboard'],
+    queryFn: () => api.get('/contracts'),
+  });
+
+  const totalContractedAmount = contracts.reduce((acc, c) => acc + Number(c.total_amount || 0), 0);
+  const totalRequestedAmount = contracts.reduce((acc, c) => acc + Number(c.requested_amount || 0), 0);
+  const totalRemainingAmount = contracts.reduce((acc, c) => acc + Number(c.remaining_amount || 0), 0);
+  const activeContractsCount = contracts.filter((c) => c.computed_status === 'ATIVO' || c.computed_status === 'PROXIMO_VENCIMENTO').length;
+  const expiringContractsCount = contracts.filter((c) => c.computed_status === 'PROXIMO_VENCIMENTO').length;
+  const expiredContractsCount = contracts.filter((c) => c.computed_status === 'VENCIDO').length;
 
   const clearFilters = () => {
     setDateFrom('');
@@ -188,6 +205,69 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Gestão de Saldos Contratuais COZAM */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ScrollText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+              Contratos & Saldos Contratuais Disponíveis
+            </h2>
+          </div>
+          <Link
+            to="/contratos"
+            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+          >
+            Ver todos os contratos
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <StatCard
+            title="Valor Total Contratado"
+            value={totalContractedAmount}
+            isCurrency
+            subtitle={`${activeContractsCount} contrato(s) ativo(s) em vigência`}
+            tone="default"
+            icon={<ScrollText className="w-5 h-5 text-indigo-600" />}
+          />
+          <StatCard
+            title="Total Solicitado em OFs"
+            value={totalRequestedAmount}
+            isCurrency
+            subtitle="Montante demandado através de Ordens de Fornecimento"
+            tone="default"
+            icon={<TrendingUp className="w-5 h-5 text-amber-600" />}
+          />
+          <StatCard
+            title="Saldo Contratual Disponível"
+            value={totalRemainingAmount}
+            isCurrency
+            subtitle="Limite financeiro remanescente para emissão de novas OFs"
+            tone="green"
+            icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+          />
+        </div>
+
+        {expiringContractsCount > 0 && (
+          <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2.5 text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>
+                <strong>Atenção:</strong> {expiringContractsCount} contrato(s) com vigência expirando nos próximos 30 dias.
+              </span>
+            </div>
+            <Link
+              to="/contratos"
+              className="font-bold text-amber-900 dark:text-amber-200 underline hover:text-amber-700"
+            >
+              Conferir e Aditivar
+            </Link>
+          </div>
+        )}
+      </div>
 
       {/* Cartões Financeiros Principais (Valores Confirmados) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
