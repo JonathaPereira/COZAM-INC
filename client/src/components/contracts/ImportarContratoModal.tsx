@@ -244,15 +244,18 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
                 </div>
 
                 {parseMutation.isError && (
-                  <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl text-rose-800 dark:text-rose-200 space-y-2">
+                  <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl text-rose-800 dark:text-rose-200 space-y-3">
                     <div className="flex items-center gap-2 font-bold text-sm">
                       <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-                      Não foi possível analisar este arquivo PDF
+                      Não foi possível extrair dados automaticamente deste PDF
                     </div>
                     <p className="text-xs text-rose-700 dark:text-rose-300">
                       {getErrorMessage(parseMutation.error)}
                     </p>
-                    <div className="pt-1 flex gap-2">
+                    <p className="text-2xs text-slate-500 dark:text-slate-400">
+                      💡 Dica: Se o seu backend no Render estiver reiniciando ou sincronizando uma nova versão, você pode continuar preenchendo os dados do contrato manualmente sem perder o progresso.
+                    </p>
+                    <div className="pt-1 flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -261,9 +264,34 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
                           parseMutation.reset();
                           fileInputRef.current?.click();
                         }}
-                        className="px-3 py-1.5 text-xs bg-rose-600 text-white rounded font-bold hover:bg-rose-700 transition"
+                        className="px-3.5 py-1.5 text-xs bg-rose-600 text-white rounded-lg font-bold hover:bg-rose-700 transition cursor-pointer"
                       >
                         Tentar com outro arquivo PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const filenameClean = file?.name.replace(/\.pdf$/i, '') || '';
+                          const contractNum = filenameClean.match(/\b\d{1,4}[.\/-]\d{4}\b/)?.[0] || '';
+                          setExtractedData({
+                            contract_number: contractNum,
+                            year: new Date().getFullYear(),
+                            object: filenameClean,
+                            legal_framework: 'Lei 14.133/2021',
+                            start_date: new Date().toISOString().slice(0, 10),
+                            end_date: '',
+                            total_amount: 0,
+                            items: [],
+                            alerts: [
+                              'O arquivo PDF não pôde ser lido automaticamente pelo servidor. Você pode preencher os dados cadastrais e itens manualmente nos campos abaixo.',
+                            ],
+                          });
+                          setIsReviewing(true);
+                        }}
+                        className="px-3.5 py-1.5 text-xs bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition cursor-pointer"
+                      >
+                        Continuar e Preencher Manualmente →
                       </button>
                     </div>
                   </div>
@@ -431,9 +459,33 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
             {/* Tabela de Itens Extraídos */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                  Itens Contratados Extraídos ({extractedData.items?.length || 0})
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Itens Contratados ({extractedData.items?.length || 0})
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextCode = String((extractedData.items || []).length + 1);
+                      const newItem = {
+                        item_code: nextCode,
+                        description: `Novo Item ${nextCode}`,
+                        unit: 'UN',
+                        original_quantity: 1,
+                        unit_price: 0,
+                        total_price: 0,
+                        has_divergence: false,
+                      };
+                      setExtractedData({
+                        ...extractedData,
+                        items: [...(extractedData.items || []), newItem],
+                      });
+                    }}
+                    className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded text-2xs font-bold hover:bg-indigo-100 cursor-pointer"
+                  >
+                    + Adicionar Item
+                  </button>
+                </div>
                 <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
                   Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(extractedData.total_amount || 0)}
                 </span>
@@ -453,7 +505,14 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {(extractedData.items || []).map((item: any, idx: number) => (
+                    {(extractedData.items || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-slate-500 dark:text-slate-400">
+                          Nenhum item cadastrado ainda. Clique em "+ Adicionar Item" acima para inserir os itens contratados.
+                        </td>
+                      </tr>
+                    ) : (
+                      (extractedData.items || []).map((item: any, idx: number) => (
                       <tr key={idx} className={item.has_divergence ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}>
                         <td className="p-2 font-mono text-center">{item.item_code}</td>
                         <td className="p-2 font-medium">{item.description}</td>
@@ -475,7 +534,7 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
                           )}
                         </td>
                       </tr>
-                    ))}
+                    )))}
                   </tbody>
                 </table>
               </div>
