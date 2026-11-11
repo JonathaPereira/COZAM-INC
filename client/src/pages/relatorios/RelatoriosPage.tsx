@@ -31,6 +31,7 @@ export function RelatoriosPage() {
   const [selectedType, setSelectedType] = useState<ReportType>('notas');
   const [supplierId, setSupplierId] = useState('');
   const [modality, setModality] = useState('');
+  const [municipality, setMunicipality] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [invoiceId, setInvoiceId] = useState('');
@@ -39,6 +40,12 @@ export function RelatoriosPage() {
   const { data: suppliers } = useQuery({
     queryKey: ['suppliers'],
     queryFn: () => api.get<Supplier[]>('/suppliers'),
+  });
+
+  // Busca municípios consorciados
+  const { data: municipalitiesData } = useQuery({
+    queryKey: ['municipalities'],
+    queryFn: () => api.get<string[]>('/invoices/municipalities'),
   });
 
   // Busca NFs caso o relatório seja o histórico individual de uma NF
@@ -50,11 +57,12 @@ export function RelatoriosPage() {
 
   // Consulta dados do relatório selecionado
   const { data: report, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['report', selectedType, supplierId, modality, dateFrom, dateTo, invoiceId],
+    queryKey: ['report', selectedType, supplierId, modality, municipality, dateFrom, dateTo, invoiceId],
     queryFn: () =>
       api.get<ReportResult>(`/reports/${selectedType}`, {
         supplier_id: supplierId,
         modality,
+        municipality,
         date_from: dateFrom,
         date_to: dateTo,
         invoice_id: invoiceId,
@@ -188,6 +196,19 @@ export function RelatoriosPage() {
                 onChange={(e) => setDateTo(e.target.value)}
                 className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               />
+            </div>
+            <div>
+              <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Município Consorciado</label>
+              <select
+                value={municipality}
+                onChange={(e) => setMunicipality(e.target.value)}
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              >
+                <option value="">Todos os municípios</option>
+                {municipalitiesData?.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Fornecedor</label>

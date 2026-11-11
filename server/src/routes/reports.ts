@@ -21,12 +21,14 @@ reportsRouter.get('/reports/:type', authenticate, requirePermission('reports.vie
     const dateTo = typeof req.query.date_to === 'string' ? req.query.date_to.trim() : '';
     const processId = typeof req.query.process_id === 'string' ? req.query.process_id.trim() : '';
     const invoiceId = typeof req.query.invoice_id === 'string' ? req.query.invoice_id.trim() : '';
+    const municipality = typeof req.query.municipality === 'string' ? req.query.municipality.trim() : '';
 
     const filtersApplied: { label: string; value: string }[] = [];
     if (supplierId) {
       const s = await pool.query('select name from public.suppliers where id = $1', [supplierId]);
       if (s.rowCount > 0) filtersApplied.push({ label: 'Fornecedor', value: s.rows[0].name });
     }
+    if (municipality) filtersApplied.push({ label: 'Município', value: municipality });
     if (modality) filtersApplied.push({ label: 'Modalidade', value: modality });
     if (dateFrom) filtersApplied.push({ label: 'A partir de', value: dateFrom });
     if (dateTo) filtersApplied.push({ label: 'Até', value: dateTo });
@@ -53,6 +55,10 @@ reportsRouter.get('/reports/:type', authenticate, requirePermission('reports.vie
       if (supplierId) {
         params.push(supplierId);
         where.push(`i.supplier_id = $${params.length}`);
+      }
+      if (municipality) {
+        params.push(`%${municipality}%`);
+        where.push(`i.municipality ilike $${params.length}`);
       }
       if (modality) {
         params.push(modality);
@@ -151,6 +157,10 @@ reportsRouter.get('/reports/:type', authenticate, requirePermission('reports.vie
       if (supplierId) {
         params.push(supplierId);
         where.push(`i.supplier_id = $${params.length}`);
+      }
+      if (municipality) {
+        params.push(`%${municipality}%`);
+        where.push(`i.municipality ilike $${params.length}`);
       }
       if (modality) {
         params.push(modality);

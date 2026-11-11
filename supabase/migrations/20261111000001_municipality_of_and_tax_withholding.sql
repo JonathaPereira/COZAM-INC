@@ -59,3 +59,30 @@ LEFT JOIN public.profiles ub ON ub.id = p.updated_by
 LEFT JOIN public.profiles xb ON xb.id = p.cancelled_by;
 
 GRANT SELECT ON public.v_payments TO authenticated;
+
+-- 5. Recriar visão v_processes incluindo municípios associados ao processo
+DROP VIEW IF EXISTS public.v_processes;
+
+CREATE VIEW public.v_processes
+WITH (security_invoker = true)
+AS
+SELECT
+  ap.*,
+  cb.full_name AS created_by_name,
+  (SELECT COUNT(*) FROM public.supply_orders so WHERE so.process_id = ap.id)::int AS supply_orders_count,
+  (SELECT COUNT(*) FROM public.invoices i WHERE i.process_id = ap.id AND i.cancelled_at IS NULL)::int AS invoices_count,
+  (SELECT COALESCE(SUM(i.amount), 0) FROM public.invoices i WHERE i.process_id = ap.id AND i.cancelled_at IS NULL AND i.verified) AS invoices_total,
+  (SELECT COALESCE(SUM(i.total_paid), 0) FROM public.invoices i WHERE i.process_id = ap.id AND i.cancelled_at IS NULL AND i.verified) AS paid_total,
+  (SELECT COALESCE(array_agg(DISTINCT s.name ORDER BY s.name), '{}')
+     FROM public.supply_orders so JOIN public.suppliers s ON s.id = so.supplier_id
+    WHERE so.process_id = ap.id) AS supplier_names,
+  (SELECT string_agg(DISTINCT m, ', ')
+     FROM (
+       SELECT so.municipality AS m FROM public.supply_orders so WHERE so.process_id = ap.id AND so.municipality IS NOT NULL AND trim(so.municipality) <> ''
+       UNION
+       SELECT i.municipality AS m FROM public.invoices i WHERE i.process_id = ap.id AND i.municipality IS NOT NULL AND trim(i.municipality) <> ''
+     ) sub) AS municipalities
+FROM public.administrative_processes ap
+LEFT JOIN public.profiles cb ON cb.id = ap.created_by;
+
+GRANT SELECT ON public.v_processes TO authenticated;
