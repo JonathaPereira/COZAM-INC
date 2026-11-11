@@ -35,8 +35,10 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
         matched_supplier: newSupplier,
       }));
     },
-    onError: (err) => {
-      toast.error(getErrorMessage(err));
+    onError: (err: any) => {
+      const msg = getErrorMessage(err);
+      const detail = err?.details?.detail;
+      toast.error(detail ? `${msg} (${detail})` : msg);
     },
   });
 
@@ -52,8 +54,10 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
       setIsReviewing(true);
       toast.success('Dados do contrato extraídos com sucesso! Revise os campos antes de confirmar.');
     },
-    onError: (err) => {
-      toast.error(getErrorMessage(err));
+    onError: (err: any) => {
+      const msg = getErrorMessage(err);
+      const detail = err?.details?.detail;
+      toast.error(detail ? `${msg} (${detail})` : msg);
     },
   });
 
@@ -80,8 +84,10 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
       queryClient.invalidateQueries({ queryKey: ['contracts-list'] });
       handleClose();
     },
-    onError: (err) => {
-      toast.error(getErrorMessage(err));
+    onError: (err: any) => {
+      const msg = getErrorMessage(err);
+      const detail = err?.details?.detail;
+      toast.error(detail ? `${msg} (${detail})` : msg);
     },
   });
 

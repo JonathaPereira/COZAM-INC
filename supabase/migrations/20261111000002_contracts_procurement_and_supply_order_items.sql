@@ -166,8 +166,10 @@ CREATE TABLE IF NOT EXISTS public.contract_item_movements (
 CREATE INDEX IF NOT EXISTS idx_movements_item ON public.contract_item_movements (contract_item_id);
 CREATE INDEX IF NOT EXISTS idx_movements_order ON public.contract_item_movements (supply_order_id);
 
--- 9. Views Analíticas
-DROP VIEW IF EXISTS public.v_contract_items;
+-- 9. Views Analíticas (ordem segura com CASCADE)
+DROP VIEW IF EXISTS public.v_contracts CASCADE;
+DROP VIEW IF EXISTS public.v_contract_items CASCADE;
+
 CREATE VIEW public.v_contract_items
 WITH (security_invoker = true)
 AS
@@ -206,7 +208,6 @@ SELECT
   )::numeric(12,3) AS available_quantity
 FROM public.contract_items ci;
 
-DROP VIEW IF EXISTS public.v_contracts;
 CREATE VIEW public.v_contracts
 WITH (security_invoker = true)
 AS
@@ -237,7 +238,12 @@ JOIN public.suppliers s ON s.id = c.supplier_id
 LEFT JOIN public.procurement_processes pp ON pp.id = c.procurement_id
 LEFT JOIN public.profiles cb ON cb.id = c.created_by;
 
-GRANT SELECT ON public.destinations, public.procurement_processes, public.contracts,
-                public.contract_amendments, public.contract_items, public.supply_order_items,
-                public.contract_item_movements, public.v_contract_items, public.v_contracts
-  TO authenticated;
+DO $$
+BEGIN
+  GRANT SELECT ON public.destinations, public.procurement_processes, public.contracts,
+                  public.contract_amendments, public.contract_items, public.supply_order_items,
+                  public.contract_item_movements, public.v_contract_items, public.v_contracts
+    TO authenticated;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;

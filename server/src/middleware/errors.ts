@@ -146,12 +146,29 @@ export function errorHandler(
     return;
   }
 
+  // Erros de parsing de requisição (ex: JSON malformatado)
+  if (err.type === 'entity.parse.failed' || (err.status && err.status === 400 && err.name === 'SyntaxError')) {
+    res.status(400).json({
+      error: {
+        code: 'PAYLOAD_INVALIDO',
+        message: 'O corpo da requisição não é um JSON válido.',
+      },
+    });
+    return;
+  }
+
   // Falha genérica não tratada
   console.error('[ERRO NÃO TRATADO]', err);
-  res.status(500).json({
+  const status = typeof err.status === 'number' && err.status >= 400 && err.status < 600 ? err.status : 500;
+  const userMessage = err?.message
+    ? `Erro no servidor: ${err.message}`
+    : 'Ocorreu um erro interno no servidor ao processar a operação.';
+
+  res.status(status).json({
     error: {
-      code: 'ERRO_INTERNO',
-      message: 'Ocorreu um erro interno no servidor ao processar a operação.',
+      code: err?.code || 'ERRO_INTERNO',
+      message: userMessage,
+      details: err?.detail ? { detail: err.detail } : undefined,
     },
   });
 }

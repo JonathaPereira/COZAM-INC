@@ -36,7 +36,7 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 
 -- 4. Recriar visão v_payments de forma segura (drop e create)
-DROP VIEW IF EXISTS public.v_payments;
+DROP VIEW IF EXISTS public.v_payments CASCADE;
 
 CREATE VIEW public.v_payments
 WITH (security_invoker = true)
@@ -64,10 +64,13 @@ LEFT JOIN public.profiles cb ON cb.id = p.created_by
 LEFT JOIN public.profiles ub ON ub.id = p.updated_by
 LEFT JOIN public.profiles xb ON xb.id = p.cancelled_by;
 
-GRANT SELECT ON public.v_payments TO authenticated;
+DO $$ BEGIN
+  GRANT SELECT ON public.v_payments TO authenticated;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- 5. Recriar visão v_processes incluindo municípios associados ao processo
-DROP VIEW IF EXISTS public.v_processes;
+DROP VIEW IF EXISTS public.v_processes CASCADE;
 
 CREATE VIEW public.v_processes
 WITH (security_invoker = true)
@@ -91,10 +94,13 @@ SELECT
 FROM public.administrative_processes ap
 LEFT JOIN public.profiles cb ON cb.id = ap.created_by;
 
-GRANT SELECT ON public.v_processes TO authenticated;
+DO $$ BEGIN
+  GRANT SELECT ON public.v_processes TO authenticated;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- 6. Recriar visão v_invoices para incluir o status de Simples Nacional do fornecedor
-DROP VIEW IF EXISTS public.v_invoices;
+DROP VIEW IF EXISTS public.v_invoices CASCADE;
 
 CREATE VIEW public.v_invoices
 WITH (security_invoker = true)
@@ -126,4 +132,7 @@ LEFT JOIN public.profiles fb ON fb.id = i.forwarded_by
 LEFT JOIN public.profiles ab ON ab.id = i.attended_by
 LEFT JOIN public.profiles xb ON xb.id = i.cancelled_by;
 
-GRANT SELECT ON public.v_invoices TO authenticated;
+DO $$ BEGIN
+  GRANT SELECT ON public.v_invoices TO authenticated;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
