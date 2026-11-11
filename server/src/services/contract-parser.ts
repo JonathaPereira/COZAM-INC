@@ -89,7 +89,20 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
  * Validates math: quantity * unit_price == total_price.
  */
 export async function parseContractPdf(buffer: Buffer): Promise<ExtractedContractData> {
-  const text: string = await extractTextFromPdf(buffer);
+  let text = '';
+  try {
+    text = await extractTextFromPdf(buffer);
+  } catch (err: any) {
+    console.warn('[PDF Parser] Falha ao extrair texto do PDF:', err?.message);
+    return {
+      alerts: [
+        'Atenção: Não foi possível extrair o texto deste PDF automaticamente (o arquivo pode estar protegido, digitalizado como imagem ou em formato não padrão). Preencha os campos de conferência manualmente.',
+      ],
+      items: [],
+      raw_text: '',
+    };
+  }
+
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
   const result: ExtractedContractData = {
@@ -97,6 +110,12 @@ export async function parseContractPdf(buffer: Buffer): Promise<ExtractedContrac
     items: [],
     raw_text: text.slice(0, 3000), // First 3000 chars for preview
   };
+
+  if (!text || text.trim().length === 0) {
+    result.alerts.push(
+      'Aviso: O arquivo PDF não contém texto pesquisável (possivelmente foi digitalizado como foto/imagem). Você pode preencher os dados e itens manualmente abaixo.'
+    );
+  }
 
   // 1. Contract number and Year (e.g., Contrato nº 012/2026, Contrato Administrativo nº 45/2026)
   const numMatch = text.match(/contrato(?:\s+administrativo)?(?:\s+n[ºo°\.])?\s*([0-9]{1,6})\s*[\/_-]\s*([0-9]{4})/i);

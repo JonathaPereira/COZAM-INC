@@ -500,10 +500,6 @@ export function ContratosListPage() {
         </div>
       )}
 
-      {/* Modais */}
-      <NovoContratoModal isOpen={isNovoModalOpen} onClose={() => setIsNovoModalOpen(false)} />
-      <ImportarContratoModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
-
       {/* Modal para criar processo licitatório avulso */}
       {isNovoProcessoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
@@ -628,7 +624,14 @@ export function ContratosListPage() {
       )}
 
       {/* Modais */}
-      <NovoContratoModal isOpen={isNovoModalOpen} onClose={() => setIsNovoModalOpen(false)} />
+      <NovoContratoModal
+        isOpen={isNovoModalOpen}
+        onClose={() => setIsNovoModalOpen(false)}
+        onOpenImportPdf={() => {
+          setIsNovoModalOpen(false);
+          setIsImportModalOpen(true);
+        }}
+      />
       <ImportarContratoModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
     </div>
   );

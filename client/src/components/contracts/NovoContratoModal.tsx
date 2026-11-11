@@ -8,9 +8,10 @@ interface NovoContratoModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialData?: any;
+  onOpenImportPdf?: () => void;
 }
 
-export function NovoContratoModal({ isOpen, onClose, initialData }: NovoContratoModalProps) {
+export function NovoContratoModal({ isOpen, onClose, initialData, onOpenImportPdf }: NovoContratoModalProps) {
   const queryClient = useQueryClient();
 
   const [contractNumber, setContractNumber] = useState(initialData?.contract_number || '');
@@ -192,9 +193,24 @@ export function NovoContratoModal({ isOpen, onClose, initialData }: NovoContrato
               Registro do contrato administrativo com amarração matemática de saldo por item.
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl">
-            &times;
-          </button>
+          <div className="flex items-center gap-3">
+            {onOpenImportPdf && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenImportPdf();
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-bold border border-indigo-200 dark:border-indigo-800 transition-colors cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                Preencher via PDF
+              </button>
+            )}
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl">
+              &times;
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
