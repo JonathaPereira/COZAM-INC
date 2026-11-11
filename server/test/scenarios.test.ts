@@ -1271,4 +1271,131 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     expect(check2.body.items[0].reserved_quantity).toBe(0);
     expect(check2.body.items[0].available_quantity).toBe(100);
   });
+
+  it('Cenário Q: Geração de PDF/XLSX da OF, upload de via física assinada e conversão idempotente de saldo', async () => {
+    // 1. Cadastra contrato com 100 refletores
+    const contractRes = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '077/2026',
+        year: 2026,
+        supplier_id: mzSupplierId,
+        object: 'Aquisição de refletores e luminárias LED para iluminação pública',
+        legal_framework: 'Lei 14.133/2021',
+        signing_date: '2026-05-01',
+        start_date: '2026-05-01',
+        end_date: '2027-05-01',
+        delivery_deadline_days: 15,
+        total_amount: 10000.0,
+        status: 'ATIVO',
+        items: [
+          {
+            item_code: '6-9',
+            description: 'Refletor holofote microled slim de 100w',
+            category: 'MATERIAL_ELETRICO',
+            unit: 'Unidade',
+            original_quantity: 100,
+            unit_price: 100.0,
+            total_price: 10000.0,
+          },
+        ],
+      })
+      .expect(201);
+
+    const contractId = contractRes.body.id;
+
+    // 1.1 Obtém itens do contrato
+    const contractDetail = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const itemId = contractDetail.body.items[0].id;
+
+    // 2. Emite OF de 30 unidades
+    const ofRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_id: contractId,
+        supplier_id: mzSupplierId,
+        issue_date: '2026-05-15',
+        municipality: 'Santana do Mundaú',
+        items: [{ contract_item_id: itemId, quantity: 30 }],
+      })
+      .expect(201);
+
+    const ofId = ofRes.body.id;
+    expect(ofRes.body.status).toBe('AGUARDANDO_ASSINATURA');
+    expect(ofRes.body.total_value).toBe(3000);
+
+    // 3. Testa download de PDF
+    const pdfRes = await request(app)
+      .get(`/api/supply-orders/${ofId}/pdf`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .buffer(true)
+      .parse((res, fn) => {
+        const data: Buffer[] = [];
+        res.on('data', (c) => data.push(c));
+        res.on('end', () => fn(null, Buffer.concat(data)));
+      })
+      .expect(200);
+
+    expect(pdfRes.headers['content-type']).toContain('application/pdf');
+    expect(pdfRes.body.length).toBeGreaterThan(500);
+    expect(pdfRes.body.toString('latin1', 0, 4)).toBe('%PDF');
+
+    // 4. Testa download de XLSX
+    const xlsxRes = await request(app)
+      .get(`/api/supply-orders/${ofId}/xlsx`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .buffer(true)
+      .parse((res, fn) => {
+        const data: Buffer[] = [];
+        res.on('data', (c) => data.push(c));
+        res.on('end', () => fn(null, Buffer.concat(data)));
+      })
+      .expect(200);
+
+    expect(xlsxRes.headers['content-type']).toContain('spreadsheetml');
+    expect(xlsxRes.body.length).toBeGreaterThan(500);
+
+    // 5. Upload da via física assinada escaneada
+    const fakeSignedPdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF');
+    const uploadRes = await request(app)
+      .post(`/api/supply-orders/${ofId}/upload-signed`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('file', fakeSignedPdf, 'OF-077-2026-ASSINADA.pdf')
+      .expect(200);
+
+    expect(uploadRes.body.success).toBe(true);
+    expect(uploadRes.body.supply_order.status).toBe('CONFIRMADA');
+    expect(uploadRes.body.supply_order.signed_at).toBeDefined();
+
+    // 6. Confere que a reserva de 30 foi convertida em baixa efetiva e saldo disponível é 70
+    const contractCheck = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(contractCheck.body.items[0].reserved_quantity).toBe(0);
+    expect(contractCheck.body.items[0].delivered_quantity).toBe(30);
+    expect(contractCheck.body.items[0].available_quantity).toBe(70);
+
+    // 7. Re-upload deve ser idempotente (sem duplicar baixa de saldo)
+    await request(app)
+      .post(`/api/supply-orders/${ofId}/upload-signed`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('file', fakeSignedPdf, 'OF-077-2026-ASSINADA-REUPLOAD.pdf')
+      .expect(200);
+
+    const contractCheck2 = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(contractCheck2.body.items[0].reserved_quantity).toBe(0);
+    expect(contractCheck2.body.items[0].delivered_quantity).toBe(30);
+    expect(contractCheck2.body.items[0].available_quantity).toBe(70);
+  });
 });

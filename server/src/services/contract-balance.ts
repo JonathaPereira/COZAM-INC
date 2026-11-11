@@ -1,4 +1,4 @@
-import type { PoolClient } from 'pg';
+import type { DbClient } from '../db/pool.js';
 import { AppError } from '../middleware/errors.js';
 
 export interface OrderItemInput {
@@ -16,7 +16,7 @@ export interface RevertItemInput {
  * Utiliza SELECT ... FOR UPDATE para evitar condições de corrida em concorrência.
  */
 export async function reserveContractItems(
-  client: PoolClient,
+  client: DbClient,
   contractId: string,
   items: OrderItemInput[],
   supplyOrderId: string,
@@ -112,7 +112,7 @@ export async function reserveContractItems(
  * Operação idempotente: se já estiver baixada, não duplica.
  */
 export async function confirmContractItems(
-  client: PoolClient,
+  client: DbClient,
   supplyOrderId: string,
   actorId: string
 ): Promise<void> {
@@ -123,7 +123,7 @@ export async function confirmContractItems(
     [supplyOrderId]
   );
 
-  if (checkAlreadyBaixa.rowCount > 0) {
+  if ((checkAlreadyBaixa.rowCount ?? 0) > 0) {
     // Idempotência: já confirmado anteriormente
     return;
   }
@@ -156,7 +156,7 @@ export async function confirmContractItems(
  * Libera as quantidades reservadas de uma OF que foi cancelada antes da assinatura.
  */
 export async function releaseReservedContractItems(
-  client: PoolClient,
+  client: DbClient,
   supplyOrderId: string,
   reason: string,
   actorId: string
@@ -190,7 +190,7 @@ export async function releaseReservedContractItems(
  * Estorna quantidades de itens de uma OF já confirmada (cancelamento pós-assinatura ou fornecimento parcial).
  */
 export async function revertDeliveredContractItems(
-  client: PoolClient,
+  client: DbClient,
   supplyOrderId: string,
   itemsToReturn: RevertItemInput[],
   reason: string,
@@ -203,7 +203,7 @@ export async function revertDeliveredContractItems(
       `SELECT unit_price FROM public.contract_items WHERE id = $1`,
       [it.contract_item_id]
     );
-    if (itemRow.rowCount === 0) continue;
+    if ((itemRow.rowCount ?? 0) === 0) continue;
 
     const unitPrice = Number(itemRow.rows[0].unit_price);
     const totalAmount = Math.round(it.quantity * unitPrice * 100) / 100;

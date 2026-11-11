@@ -8,9 +8,15 @@ import { runInTransaction } from '../db/transaction.js';
 import { uploadDocument } from '../services/storage.js';
 import {
   reserveContractItems,
+  confirmContractItems,
   releaseReservedContractItems,
   revertDeliveredContractItems,
 } from '../services/contract-balance.js';
+import {
+  generateSupplyOrderPdf,
+  generateSupplyOrderWorkbook,
+  type SupplyOrderDocData,
+} from '../services/supply-order-document.js';
 import { AppError } from '../middleware/errors.js';
 
 export const supplyOrdersRouter = Router();
@@ -773,6 +779,228 @@ supplyOrdersRouter.post(
 
       res.json({
         success: true,
+        supply_order: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+async function fetchSupplyOrderDocData(orderId: string): Promise<SupplyOrderDocData> {
+  const pool = getPool();
+  const ofRes = await pool.query(
+    `select so.*,
+            s.name as supplier_name, s.legal_name as supplier_legal_name, s.cnpj as supplier_cnpj,
+            s.street as supplier_street, s.number as supplier_number, s.complement as supplier_complement,
+            s.neighborhood as supplier_neighborhood, s.city as supplier_city, s.state as supplier_state,
+            s.zip_code as supplier_zip_code, s.phone as supplier_phone, s.email as supplier_email,
+            ap.process_number,
+            c.contract_number, c.object as contract_object, c.legal_framework as contract_legal_framework,
+            c.signing_date as contract_signing_date, c.start_date as contract_start_date, c.end_date as contract_end_date,
+            c.delivery_deadline_days as contract_delivery_deadline_days,
+            pp.process_number as bidding_number, pp.modality as process_modality,
+            d.name as destination_name, d.city as destination_city,
+            cb.full_name as created_by_name
+       from public.supply_orders so
+       join public.suppliers s on s.id = so.supplier_id
+       left join public.administrative_processes ap on ap.id = so.process_id
+       left join public.contracts c on c.id = so.contract_id
+       left join public.procurement_processes pp on pp.id = c.procurement_id
+       left join public.destinations d on d.id = so.destination_id
+       left join public.profiles cb on cb.id = so.created_by
+      where so.id = $1`,
+    [orderId]
+  );
+
+  if (ofRes.rowCount === 0) {
+    throw new AppError('Ordem de Fornecimento não encontrada.', { code: 'NAO_ENCONTRADO', status: 404 });
+  }
+
+  const row = ofRes.rows[0];
+
+  const itemsRes = await pool.query(
+    `select soi.*, ci.item_code, ci.description, ci.unit
+       from public.supply_order_items soi
+       join public.contract_items ci on ci.id = soi.contract_item_id
+      where soi.supply_order_id = $1
+      order by ci.item_code asc`,
+    [orderId]
+  );
+
+  const fullSupplierAddress = [
+    [row.supplier_street, row.supplier_number, row.supplier_complement].filter(Boolean).join(', '),
+    row.supplier_neighborhood ? `Bairro: ${row.supplier_neighborhood}` : '',
+    row.supplier_zip_code ? `CEP: ${row.supplier_zip_code}` : '',
+    [row.supplier_city, row.supplier_state].filter(Boolean).join('/')
+  ].filter(Boolean).join(' - ');
+
+  let items = itemsRes.rows.map((it: any, idx: number) => ({
+    item_number: it.item_code || String(idx + 1),
+    description: it.description || 'Item sem descrição',
+    unit_of_measure: it.unit || 'UND',
+    quantity: Number(it.quantity),
+    unit_price: Number(it.unit_price),
+    total_price: Number(it.total_price),
+  }));
+
+  if (items.length === 0 && row.total_value) {
+    items = [{
+      item_number: '1',
+      description: row.notes || 'Fornecimento conforme Termo de Contrato e Processo',
+      unit_of_measure: 'GLOBAL',
+      quantity: 1,
+      unit_price: Number(row.total_value),
+      total_price: Number(row.total_value),
+    }];
+  }
+
+  const totalAmount = items.reduce((acc: number, it: any) => acc + it.total_price, 0) || Number(row.total_value || 0);
+
+  return {
+    order_number: row.of_number || 'OF S/N',
+    tracking_code: row.tracking_code || `COZAM-${row.id.slice(0, 8).toUpperCase()}`,
+    created_at: row.issue_date || row.created_at,
+    status: row.status || 'CONFIRMADA',
+    destination_name: row.destination_name || row.municipality || 'Santana do Mundaú',
+    destination_entity: row.destination_city || row.destination_name || 'COZAM',
+    contract_number: row.contract_number,
+    contract_object: row.contract_object,
+    legal_framework: row.contract_legal_framework,
+    celebration_date: row.contract_signing_date ? new Date(row.contract_signing_date).toLocaleDateString('pt-BR') : undefined,
+    validity_date: row.contract_end_date ? new Date(row.contract_end_date).toLocaleDateString('pt-BR') : undefined,
+    delivery_deadline_days: row.contract_delivery_deadline_days || 15,
+    process_number: row.process_number || row.bidding_number,
+    process_modality: row.process_modality || 'PREGÃO ELETRÔNICO',
+    bidding_number: row.bidding_number,
+    supplier_name: row.supplier_legal_name || row.supplier_name,
+    supplier_trade_name: row.supplier_name,
+    supplier_cnpj: row.supplier_cnpj || '00.000.000/0000-00',
+    supplier_address: fullSupplierAddress,
+    supplier_phone: row.supplier_phone,
+    supplier_email: row.supplier_email,
+    issuer_name: row.created_by_name || 'JONATHA PEREIRA DE JESUS',
+    issuer_role: 'SUPERVISOR DE COMPRAS',
+    items,
+    total_amount: totalAmount,
+  };
+}
+
+supplyOrdersRouter.get('/supply-orders/:id/pdf', authenticate, requirePermission('processes.view'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const docData = await fetchSupplyOrderDocData(id);
+    const pdfBytes = await generateSupplyOrderPdf(docData);
+
+    const safeOf = docData.order_number.replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="OF-${safeOf}.pdf"`);
+    res.send(Buffer.from(pdfBytes));
+  } catch (err) {
+    next(err);
+  }
+});
+
+supplyOrdersRouter.get('/supply-orders/:id/xlsx', authenticate, requirePermission('processes.view'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const docData = await fetchSupplyOrderDocData(id);
+    const wb = await generateSupplyOrderWorkbook(docData);
+
+    const safeOf = docData.order_number.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const buffer = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="OF-${safeOf}.xlsx"`);
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    next(err);
+  }
+});
+
+supplyOrdersRouter.post(
+  '/supply-orders/:id/upload-signed',
+  authenticate,
+  requirePermission('processes.write'),
+  upload.single('file'),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const file = req.file;
+      if (!file) {
+        throw new AppError('Nenhum arquivo de documento assinado foi enviado.', { code: 'DADOS_INVALIDOS', status: 400 });
+      }
+
+      const pool = getPool();
+      const existing = await pool.query('select * from public.supply_orders where id = $1', [id]);
+      if (existing.rowCount === 0) {
+        throw new AppError('Ordem de Fornecimento não encontrada.', { code: 'NAO_ENCONTRADO', status: 404 });
+      }
+
+      const order = existing.rows[0];
+
+      // Upload do arquivo para armazenamento
+      const uploadRes = await uploadDocument(file.buffer, 'OF', file.originalname, file.mimetype);
+
+      const result = await runInTransaction(
+        { actorId: req.user!.id, reason: 'Envio da via assinada e confirmação de baixa da OF' },
+        async (client) => {
+          // Obter versão atual do documento
+          const curDocRes = await client.query(
+            `select id, version from public.documents where supply_order_id = $1 and kind = 'OF' and is_current = true`,
+            [id]
+          );
+          let nextVersion = 1;
+          if ((curDocRes.rowCount ?? 0) > 0) {
+            nextVersion = (curDocRes.rows[0].version ?? 1) + 1;
+            await client.query(
+              `update public.documents 
+                  set is_current = false, replaced_at = now(), replaced_by = $1, replace_reason = 'Versão assinada da OF'
+                where id = $2`,
+              [req.user!.id, curDocRes.rows[0].id]
+            );
+          }
+
+          // Insere documento assinado
+        await client.query(
+          `insert into public.documents (
+            kind, supply_order_id, storage_path, file_name, mime_type, size_bytes, sha256, version, is_current, uploaded_by
+          ) values ('OF', $1, $2, $3, $4, $5, $6, $7, true, $8)`,
+          [id, uploadRes.storagePath, file.originalname, file.mimetype, uploadRes.sizeBytes, uploadRes.sha256, nextVersion, req.user!.id]
+        );
+
+        // Se tem contrato, confirma a baixa efetiva do saldo
+        if (order.contract_id) {
+          await confirmContractItems(client, id, req.user!.id);
+        }
+
+        // Atualiza a OF para CONFIRMADA com signed_at e signed_by
+        await client.query(
+          `update public.supply_orders 
+              set status = 'CONFIRMADA', signed_at = coalesce(signed_at, now()), signed_by = coalesce(signed_by, $1), updated_at = now()
+            where id = $2`,
+          [req.user!.id, id]
+        );
+
+        await client.query(
+          `insert into public.audit_logs (
+            actor_id, actor_name, actor_role, action, entity_type, entity_id, summary
+          ) values ($1, $2, $3, 'OF_ASSINADA_CONFIRMADA', 'supply_orders', $4, $5)`,
+          [
+            req.user!.id,
+            req.user!.full_name || 'Usuário',
+            req.user!.role,
+            id,
+            `Envio da via assinada e confirmação de baixa da OF nº ${order.of_number}`,
+          ]
+        );
+
+        const updated = await client.query('select * from public.supply_orders where id = $1', [id]);
+        return updated.rows[0];
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Via assinada da Ordem de Fornecimento registrada e saldo baixado com sucesso.',
         supply_order: result,
       });
     } catch (err) {

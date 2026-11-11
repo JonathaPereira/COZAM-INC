@@ -190,6 +190,7 @@ contractsRouter.get('/contracts/:id', authenticate, requirePermission('contracts
         total_price: Number(it.total_price),
         reserved_quantity: Number(it.reserved_quantity || 0),
         requested_quantity: Number(it.requested_quantity || 0),
+        delivered_quantity: Number(it.requested_quantity || 0),
         available_quantity: Number(it.available_quantity || 0),
         executed_amount: Number(it.executed_amount || 0),
         remaining_amount: Number(it.remaining_amount || 0),

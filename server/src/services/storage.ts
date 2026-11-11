@@ -25,7 +25,7 @@ function getSupabaseAdmin(): SupabaseClient | null {
 
 export async function uploadDocument(
   buffer: Buffer,
-  kind: 'OF' | 'NF' | 'COMPROVANTE',
+  kind: 'OF' | 'NF' | 'COMPROVANTE' | 'OF_ASSINADA' | 'CONTRATO' | 'ADITIVO' | 'OUTRO' | string,
   originalName: string,
   mimeType: string
 ): Promise<UploadResult> {
