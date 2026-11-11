@@ -286,7 +286,7 @@ export function Dashboard() {
                 </h2>
               </div>
               <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
-                Contratos de cabos, reatores, lâmpadas LED e materiais de iluminação para atendimento aos 11 municípios consorciados.
+                Contratos de cabos, reatores, lâmpadas LED e materiais de iluminação para atendimento aos municípios consorciados.
               </p>
             </div>
             <Link to="/ordens/nova">
