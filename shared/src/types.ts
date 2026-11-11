@@ -37,6 +37,7 @@ export interface Supplier {
   cnpj: string | null;
   display_order: number;
   active: boolean;
+  is_simples_nacional?: boolean;
 }
 
 export interface DocumentRef {
@@ -90,6 +91,7 @@ export interface SupplyOrderRow {
   document: DocumentRef | null;
   invoices_count: number;
   invoices_total: number;
+  municipality?: string | null;
   municipalities?: string | null;
 }
 
@@ -136,6 +138,11 @@ export interface PaymentRow {
   id: string;
   invoice_id: string;
   amount: number;
+  gross_amount?: number | null;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
+  net_amount?: number | null;
+  is_tax_exempt?: boolean;
   payment_date: string | null;
   notes: string | null;
   is_historical: boolean;

@@ -286,3 +286,42 @@ export const DOCUMENT_MIME_TYPES: Record<DocumentKind, string[]> = {
   NF: ['application/pdf'],
   COMPROVANTE: ['application/pdf', 'image/jpeg', 'image/png'],
 };
+
+// ---------------------------------------------------------------------------
+// Retenção Tributária (IRRF 1,2%)
+// ---------------------------------------------------------------------------
+export const DEFAULT_TAX_RATE = 0.012; // 1,2%
+
+export interface PaymentTaxCalculation {
+  grossAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  netAmount: number;
+  isTaxExempt: boolean;
+}
+
+export function calculatePaymentTaxes(
+  grossAmount: number,
+  isTaxExempt: boolean,
+  taxRate: number = DEFAULT_TAX_RATE,
+): PaymentTaxCalculation {
+  const gross = Math.max(0, Number(grossAmount) || 0);
+  if (isTaxExempt || gross === 0) {
+    return {
+      grossAmount: gross,
+      taxRate: 0,
+      taxAmount: 0,
+      netAmount: gross,
+      isTaxExempt: true,
+    };
+  }
+  const tax = Math.round(gross * taxRate * 100) / 100;
+  const net = Math.round((gross - tax) * 100) / 100;
+  return {
+    grossAmount: gross,
+    taxRate,
+    taxAmount: tax,
+    netAmount: net,
+    isTaxExempt: false,
+  };
+}
