@@ -324,10 +324,16 @@ invoicesRouter.get('/invoices/:id', authenticate, async (req, res, next) => {
         amount: invoice.amount !== null ? Number(invoice.amount) : null,
         total_paid: Number(invoice.total_paid || 0),
         balance: invoice.balance !== null ? Number(invoice.balance) : null,
+        supplier_is_simples_nacional: Boolean(invoice.supplier_is_simples_nacional),
       },
       payments: payRes.rows.map((p) => ({
         ...p,
         amount: Number(p.amount),
+        gross_amount: p.gross_amount !== null && p.gross_amount !== undefined ? Number(p.gross_amount) : Number(p.amount),
+        tax_rate: p.tax_rate !== null && p.tax_rate !== undefined ? Number(p.tax_rate) : 0,
+        tax_amount: p.tax_amount !== null && p.tax_amount !== undefined ? Number(p.tax_amount) : 0,
+        net_amount: p.net_amount !== null && p.net_amount !== undefined ? Number(p.net_amount) : Number(p.amount),
+        is_tax_exempt: Boolean(p.is_tax_exempt),
       })),
       documents: docRes.rows,
       historical: histRes.rows.map((h) => ({

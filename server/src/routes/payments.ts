@@ -15,7 +15,16 @@ const createPaymentSchema = z.object({
   payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data do pagamento inválida.'),
   notes: z.string().trim().optional().nullable(),
   client_request_id: z.string().uuid().optional(),
-  is_tax_exempt: z.coerce.boolean().optional().default(false),
+  is_tax_exempt: z
+    .preprocess((val) => {
+      if (val === undefined || val === null || val === '') return false;
+      if (typeof val === 'string') {
+        const s = val.trim().toLowerCase();
+        return s === 'true' || s === '1';
+      }
+      return Boolean(val);
+    }, z.boolean())
+    .default(false),
   tax_rate: z.coerce.number().optional().default(0.012),
 });
 

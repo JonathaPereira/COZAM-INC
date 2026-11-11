@@ -31,6 +31,7 @@ import {
   formatDateTimeBR,
   MODALITY_LABELS,
   PAYMENT_STATUS_LABELS,
+  calculatePaymentTaxes,
 } from '@cozam/shared';
 import { Card, ProgressBar } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
@@ -65,6 +66,7 @@ export function NotaFiscalDetail() {
   const [payNotes, setPayNotes] = useState('');
   const [payReceipt, setPayReceipt] = useState<File | null>(null);
   const [payRequestId, setPayRequestId] = useState('');
+  const [isTaxExempt, setIsTaxExempt] = useState(false);
   const [paying, setPaying] = useState(false);
 
   // Modal de substituição de documento da NF
@@ -115,8 +117,11 @@ export function NotaFiscalDetail() {
     setPayDate(new Date().toISOString().slice(0, 10));
     setPayNotes('');
     setPayReceipt(null);
+    setIsTaxExempt(Boolean(invoice.supplier_is_simples_nacional));
     setPayModalOpen(true);
   };
+
+  const paymentTaxes = calculatePaymentTaxes(payAmount || 0, isTaxExempt, 0.012);
 
   const handleRegisterPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,14 +141,20 @@ export function NotaFiscalDetail() {
       formData.append('payment_date', payDate);
       if (payNotes.trim()) formData.append('notes', payNotes.trim());
       formData.append('client_request_id', payRequestId);
+      formData.append('is_tax_exempt', String(isTaxExempt));
+      formData.append('tax_rate', '0.012');
       if (payReceipt) formData.append('receipt', payReceipt);
 
       const res = await api.postMultipart<any>(`/invoices/${invoice.id}/payments`, formData);
 
       if (res.invoice?.status === 'TOTALMENTE_PAGA') {
         toast.success(`Pagamento registrado! Nota Fiscal nº ${invoice.invoice_number} totalmente quitada.`);
+      } else if (isTaxExempt) {
+        toast.success(`Pagamento de ${formatBRL(payAmount)} registrado com sucesso (Isento de IRRF).`);
       } else {
-        toast.success(`Pagamento de ${formatBRL(payAmount)} registrado com sucesso.`);
+        toast.success(
+          `Pagamento registrado! Bruto: ${formatBRL(paymentTaxes.grossAmount)} | IRRF (1,2%): ${formatBRL(paymentTaxes.taxAmount)} | Líquido: ${formatBRL(paymentTaxes.netAmount)}`
+        );
       }
 
       setPayModalOpen(false);
@@ -689,8 +700,18 @@ export function NotaFiscalDetail() {
                       }`}
                     >
                       <td className="py-3 font-medium text-slate-900">{formatDateBR(p.payment_date)}</td>
-                      <td className="py-3 text-right font-bold text-emerald-700 tabular-nums">
-                        {formatBRL(p.amount)}
+                      <td className="py-3 text-right tabular-nums">
+                        <div className="font-bold text-emerald-700 dark:text-emerald-400">
+                          {formatBRL(p.amount)}
+                        </div>
+                        {p.tax_amount && p.tax_amount > 0 ? (
+                          <div className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5 space-y-0.5">
+                            <div>Líq: <span className="font-medium text-slate-700 dark:text-slate-300">{formatBRL(p.net_amount ?? (p.amount - p.tax_amount))}</span></div>
+                            <div className="text-amber-700 dark:text-amber-400">IRRF (1,2%): {formatBRL(p.tax_amount)}</div>
+                          </div>
+                        ) : (
+                          <div className="text-2xs text-slate-400 dark:text-slate-500">Isento IRRF</div>
+                        )}
                       </td>
                       <td className="py-3 text-slate-700">{p.created_by_name || '—'}</td>
                       <td className="py-3 text-2xs text-slate-500">{formatDateTimeBR(p.created_at)}</td>
@@ -823,6 +844,58 @@ export function NotaFiscalDetail() {
               required
             />
           </div>
+
+          <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isTaxExempt}
+                onChange={(e) => setIsTaxExempt(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <div>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                  Pagamento sem imposto (Simples Nacional / Isento)
+                </span>
+                <span className="text-2xs text-slate-500 dark:text-slate-400 block mt-0.5">
+                  {invoice.supplier_is_simples_nacional
+                    ? 'Fornecedor cadastrado no Simples Nacional (isenção de 1,2% de IRRF pré-selecionada).'
+                    : 'Fornecedor em regime normal. Mantenha desmarcado para reter 1,2% de IRRF ou marque caso haja isenção.'}
+                </span>
+              </div>
+            </label>
+          </div>
+
+          {payAmount && payAmount > 0 ? (
+            <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 space-y-2">
+              <div className="text-2xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Detalhamento Tributário do Pagamento
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="text-slate-600 dark:text-slate-400">Valor Bruto (Abate do Saldo da NF):</div>
+                <div className="text-right font-semibold text-slate-900 dark:text-slate-100">
+                  {formatBRL(paymentTaxes.grossAmount)}
+                </div>
+
+                <div className="text-slate-600 dark:text-slate-400">Alíquota Aplicada:</div>
+                <div className="text-right font-semibold text-slate-900 dark:text-slate-100">
+                  {paymentTaxes.isTaxExempt ? '0,00% (Isento)' : '1,20% (IRRF Retenção)'}
+                </div>
+
+                <div className="text-slate-600 dark:text-slate-400">Imposto Retido (IRRF):</div>
+                <div className="text-right font-bold text-amber-600 dark:text-amber-400">
+                  {formatBRL(paymentTaxes.taxAmount)}
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-bold">
+                  Valor Líquido a Pagar ao Fornecedor:
+                </div>
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-right font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                  {formatBRL(paymentTaxes.netAmount)}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <Input
             label="Data efetiva do pagamento"

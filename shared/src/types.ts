@@ -133,6 +133,7 @@ export interface InvoiceRow {
   last_payment_date: string | null;
   payments_count: number;
   municipality: string | null;
+  supplier_is_simples_nacional?: boolean | null;
 }
 
 export interface PaymentRow {

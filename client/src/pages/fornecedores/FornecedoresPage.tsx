@@ -17,6 +17,7 @@ export function FornecedoresPage() {
   const [legalName, setLegalName] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [displayOrder, setDisplayOrder] = useState(100);
+  const [isSimplesNacional, setIsSimplesNacional] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const { data: suppliers, isLoading, refetch } = useQuery({
@@ -34,6 +35,7 @@ export function FornecedoresPage() {
           legal_name: legalName.trim() || null,
           cnpj: cnpj.trim() || null,
           display_order: displayOrder,
+          is_simples_nacional: isSimplesNacional,
         });
         toast.success('Fornecedor atualizado com sucesso!');
       } else {
@@ -42,6 +44,7 @@ export function FornecedoresPage() {
           legal_name: legalName.trim() || null,
           cnpj: cnpj.trim() || null,
           display_order: displayOrder,
+          is_simples_nacional: isSimplesNacional,
         });
         toast.success('Fornecedor cadastrado com sucesso!');
       }
@@ -60,6 +63,7 @@ export function FornecedoresPage() {
     setLegalName('');
     setCnpj('');
     setDisplayOrder(100);
+    setIsSimplesNacional(false);
     setModalOpen(true);
   };
 
@@ -69,6 +73,7 @@ export function FornecedoresPage() {
     setLegalName(s.legal_name || '');
     setCnpj(s.cnpj || '');
     setDisplayOrder(s.display_order);
+    setIsSimplesNacional(Boolean(s.is_simples_nacional));
     setModalOpen(true);
   };
 
@@ -98,11 +103,20 @@ export function FornecedoresPage() {
                   <Building2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-slate-900 text-base">{s.name}</h3>
                     {s.display_order === 1 && (
                       <span className="text-2xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
                         Principal (~90%)
+                      </span>
+                    )}
+                    {s.is_simples_nacional ? (
+                      <span className="text-2xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        Simples Nacional (Isento IRRF)
+                      </span>
+                    ) : (
+                      <span className="text-2xs font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                        Regime Normal (Retenção 1,2% IRRF)
                       </span>
                     )}
                   </div>
@@ -169,6 +183,22 @@ export function FornecedoresPage() {
             onChange={(e) => setDisplayOrder(parseInt(e.target.value, 10) || 100)}
             helperText="Defina 1 para MZ Bernardi aparecer no topo das listagens"
           />
+
+          <div className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+            <input
+              id="is-simples-nacional"
+              type="checkbox"
+              checked={isSimplesNacional}
+              onChange={(e) => setIsSimplesNacional(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+            />
+            <label htmlFor="is-simples-nacional" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+              <span className="font-semibold block text-slate-900 dark:text-slate-100">
+                Optante pelo Simples Nacional
+              </span>
+              Fornecedores enquadrados no Simples Nacional possuem isenção de retenção na fonte (alíquota 0% de IRRF). Quando marcado, o pagamento de notas fiscais deste fornecedor virá pré-selecionado como isento de imposto.
+            </label>
+          </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
             <Button variant="ghost" onClick={() => setModalOpen(false)} disabled={saving}>
