@@ -33,6 +33,9 @@ const createContractSchema = z.object({
   contract_number: z.string().trim().min(1, 'Número do contrato é obrigatório.'),
   year: z.coerce.number().int().min(2000).max(2100).default(new Date().getFullYear()),
   procurement_id: z.string().uuid().optional().nullable(),
+  procurement_process_number: z.string().trim().optional().nullable(),
+  bidding_number: z.string().trim().optional().nullable(),
+  procurement_modality: z.string().trim().optional().nullable(),
   supplier_id: z.string().uuid('Fornecedor é obrigatório.'),
   object: z.string().trim().min(1, 'Objeto contratual é obrigatório.'),
   legal_framework: z.string().trim().default('Lei 14.133/2021'),
@@ -284,6 +287,36 @@ contractsRouter.post('/contracts', authenticate, requirePermission('contracts.wr
           });
         }
 
+        // Resolução unificada de Processo Licitatório (se informado diretamente por texto)
+        let procurementId = data.procurement_id || null;
+        if (!procurementId && data.procurement_process_number) {
+          const cleanProcNum = data.procurement_process_number.trim();
+          const procCheck = await client.query(
+            'SELECT id FROM public.procurement_processes WHERE upper(trim(process_number)) = upper(trim($1))',
+            [cleanProcNum]
+          );
+          if (procCheck.rowCount && procCheck.rowCount > 0) {
+            procurementId = procCheck.rows[0].id;
+          } else {
+            const insProc = await client.query(
+              `INSERT INTO public.procurement_processes 
+               (process_number, year, bidding_number, modality, legal_framework, object, created_by)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               RETURNING id`,
+              [
+                cleanProcNum,
+                data.year,
+                data.bidding_number || cleanProcNum,
+                data.procurement_modality || 'PREGAO_ELETRONICO',
+                data.legal_framework || 'Lei 14.133/2021',
+                data.object,
+                req.user!.id,
+              ]
+            );
+            procurementId = insProc.rows[0].id;
+          }
+        }
+
         const insContract = await client.query(
           `INSERT INTO public.contracts 
            (contract_number, year, procurement_id, supplier_id, object, legal_framework, signing_date, start_date, end_date, delivery_deadline_days, total_amount, status, created_by)
@@ -292,7 +325,7 @@ contractsRouter.post('/contracts', authenticate, requirePermission('contracts.wr
           [
             data.contract_number,
             data.year,
-            data.procurement_id || null,
+            procurementId,
             data.supplier_id,
             data.object,
             data.legal_framework,

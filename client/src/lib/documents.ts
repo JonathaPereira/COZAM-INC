@@ -81,3 +81,43 @@ export async function printDocument(documentId: string): Promise<void> {
     }
   }
 }
+
+export async function downloadSupplyOrderPdf(orderId: string, ofNumber?: string): Promise<void> {
+  const token = localStorage.getItem('cozam_token');
+  const headers = new Headers();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const res = await fetch(`/api/supply-orders/${orderId}/pdf`, { headers });
+  if (!res.ok) throw new Error('Erro ao gerar o PDF oficial da Ordem de Fornecimento.');
+
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  const safeName = (ofNumber || orderId).replace(/[^a-zA-Z0-9_-]/g, '_');
+  a.download = `OF_${safeName}_OFICIAL.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+}
+
+export async function downloadSupplyOrderXlsx(orderId: string, ofNumber?: string): Promise<void> {
+  const token = localStorage.getItem('cozam_token');
+  const headers = new Headers();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const res = await fetch(`/api/supply-orders/${orderId}/xlsx`, { headers });
+  if (!res.ok) throw new Error('Erro ao gerar a planilha XLSX oficial da Ordem de Fornecimento.');
+
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  const safeName = (ofNumber || orderId).replace(/[^a-zA-Z0-9_-]/g, '_');
+  a.download = `OF_${safeName}_OFICIAL.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+}

@@ -18,6 +18,11 @@ import {
   ScrollText,
   AlertTriangle,
   ArrowRight,
+  Zap,
+  Coffee,
+  Layers,
+  Package,
+  Plus,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -82,6 +87,25 @@ export function Dashboard() {
   const activeContractsCount = contracts.filter((c) => c.computed_status === 'ATIVO' || c.computed_status === 'PROXIMO_VENCIMENTO').length;
   const expiringContractsCount = contracts.filter((c) => c.computed_status === 'PROXIMO_VENCIMENTO').length;
   const expiredContractsCount = contracts.filter((c) => c.computed_status === 'VENCIDO').length;
+
+  const [dashboardCategory, setDashboardCategory] = useState<'eletrico' | 'consumo_interno' | 'geral'>('eletrico');
+
+  // Filtros de Contratos por Categoria
+  const eletricoContracts = contracts.filter((c) =>
+    (c.object && /elétr|eletri|ilumina|lâmpad|lampad|poste|luminár/i.test(c.object)) ||
+    (c.supplier_name && /nacional/i.test(c.supplier_name))
+  );
+  const eletricoContracted = eletricoContracts.reduce((a, c) => a + Number(c.total_amount || 0), 0);
+  const eletricoRequested = eletricoContracts.reduce((a, c) => a + Number(c.requested_amount || 0), 0);
+  const eletricoRemaining = eletricoContracts.reduce((a, c) => a + Number(c.remaining_amount || 0), 0);
+
+  const cozamUsoContracts = contracts.filter((c) =>
+    (c.object && /café|cafe|água|agua|consumo|expediente|limpeza|escritório|epis|hospitalar/i.test(c.object)) ||
+    (c.supplier_name && /bernardi/i.test(c.supplier_name))
+  );
+  const cozamUsoContracted = cozamUsoContracts.reduce((a, c) => a + Number(c.total_amount || 0), 0);
+  const cozamUsoRequested = cozamUsoContracts.reduce((a, c) => a + Number(c.requested_amount || 0), 0);
+  const cozamUsoRemaining = cozamUsoContracts.reduce((a, c) => a + Number(c.remaining_amount || 0), 0);
 
   const clearFilters = () => {
     setDateFrom('');
@@ -206,68 +230,297 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Gestão de Saldos Contratuais COZAM */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ScrollText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-              Contratos & Saldos Contratuais Disponíveis
-            </h2>
-          </div>
-          <Link
-            to="/contratos"
-            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-          >
-            Ver todos os contratos
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
+      {/* Submenu de Dashboards */}
+      <div className="flex flex-col sm:flex-row items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700">
+        <button
+          type="button"
+          onClick={() => setDashboardCategory('eletrico')}
+          className={`flex-1 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            dashboardCategory === 'eletrico'
+              ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/40'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
+          }`}
+        >
+          <Zap className="w-4 h-4 text-amber-100" />
+          ⚡ Material Elétrico (Dashboard Principal)
+        </button>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <StatCard
-            title="Valor Total Contratado"
-            value={totalContractedAmount}
-            isCurrency
-            subtitle={`${activeContractsCount} contrato(s) ativo(s) em vigência`}
-            tone="default"
-            icon={<ScrollText className="w-5 h-5 text-indigo-600" />}
-          />
-          <StatCard
-            title="Total Solicitado em OFs"
-            value={totalRequestedAmount}
-            isCurrency
-            subtitle="Montante demandado através de Ordens de Fornecimento"
-            tone="default"
-            icon={<TrendingUp className="w-5 h-5 text-amber-600" />}
-          />
-          <StatCard
-            title="Saldo Contratual Disponível"
-            value={totalRemainingAmount}
-            isCurrency
-            subtitle="Limite financeiro remanescente para emissão de novas OFs"
-            tone="green"
-            icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setDashboardCategory('consumo_interno')}
+          className={`flex-1 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            dashboardCategory === 'consumo_interno'
+              ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-400/40'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
+          }`}
+        >
+          <Coffee className="w-4 h-4 text-indigo-100" />
+          ☕ Produtos de Uso do COZAM (Consumo Interno)
+        </button>
 
-        {expiringContractsCount > 0 && (
-          <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2.5 text-amber-800 dark:text-amber-300">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-              <span>
-                <strong>Atenção:</strong> {expiringContractsCount} contrato(s) com vigência expirando nos próximos 30 dias.
-              </span>
+        <button
+          type="button"
+          onClick={() => setDashboardCategory('geral')}
+          className={`flex-1 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            dashboardCategory === 'geral'
+              ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/40'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
+          }`}
+        >
+          <Layers className="w-4 h-4 text-emerald-100" />
+          📊 Visão Geral Consolidada
+        </button>
+      </div>
+
+      {/* PAINEL CATEGORIA 1: Material Elétrico (Principal) */}
+      {dashboardCategory === 'eletrico' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-amber-500 text-white font-bold">
+                  <Zap className="w-4 h-4" />
+                </span>
+                <h2 className="text-base font-bold text-amber-950 dark:text-amber-200 font-heading">
+                  Dashboard de Material Elétrico & Iluminação Pública
+                </h2>
+              </div>
+              <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+                Contratos de cabos, reatores, lâmpadas LED e materiais de iluminação para atendimento aos 11 municípios consorciados.
+              </p>
             </div>
-            <Link
-              to="/contratos"
-              className="font-bold text-amber-900 dark:text-amber-200 underline hover:text-amber-700"
-            >
-              Conferir e Aditivar
+            <Link to="/ordens/nova">
+              <Button variant="primary" size="sm" icon={<Zap className="w-3.5 h-3.5" />} className="bg-amber-600 hover:bg-amber-700 text-white shrink-0">
+                Emitir OF de Material Elétrico
+              </Button>
             </Link>
           </div>
-        )}
-      </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard
+              title="Total Contratado (Material Elétrico)"
+              value={eletricoContracted}
+              isCurrency
+              subtitle={`${eletricoContracts.length} contrato(s) registrado(s)`}
+              tone="default"
+              icon={<Zap className="w-5 h-5 text-amber-600" />}
+            />
+            <StatCard
+              title="Consumo Solicitado em OFs"
+              value={eletricoRequested}
+              isCurrency
+              subtitle="Demandado em Ordens de Fornecimento"
+              tone="default"
+              icon={<TrendingUp className="w-5 h-5 text-amber-600" />}
+            />
+            <StatCard
+              title="Saldo Contratual Disponível"
+              value={eletricoRemaining}
+              isCurrency
+              subtitle="Limite financeiro para novas solicitações"
+              tone="green"
+              icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+            />
+          </div>
+
+          {eletricoContracts.length > 0 && (
+            <Card title="Contratos Ativos de Material Elétrico">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase tracking-wider text-2xs">
+                      <th className="py-2.5">Contrato</th>
+                      <th className="py-2.5">Fornecedor</th>
+                      <th className="py-2.5 text-right">Valor Total</th>
+                      <th className="py-2.5 text-right">Solicitado</th>
+                      <th className="py-2.5 text-right">Saldo Restante</th>
+                      <th className="py-2.5 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {eletricoContracts.map((c: any) => (
+                      <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <td className="py-2.5 font-bold text-slate-900 dark:text-white">
+                          Contrato nº {c.contract_number}/{c.year}
+                          <p className="text-2xs text-slate-400 font-normal line-clamp-1">{c.object}</p>
+                        </td>
+                        <td className="py-2.5 font-medium">{c.supplier_name}</td>
+                        <td className="py-2.5 text-right font-semibold">{formatBRL(c.total_amount)}</td>
+                        <td className="py-2.5 text-right text-amber-700 dark:text-amber-400 font-semibold">{formatBRL(c.requested_amount)}</td>
+                        <td className="py-2.5 text-right text-emerald-600 dark:text-emerald-400 font-bold">{formatBRL(c.remaining_amount)}</td>
+                        <td className="py-2.5 text-right">
+                          <Link to={`/contratos/${c.id}`} className="text-2xs font-bold text-indigo-600 hover:underline">
+                            Ver Itens & Saldo →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* PAINEL CATEGORIA 2: Produtos de Uso do COZAM (Consumo Interno) */}
+      {dashboardCategory === 'consumo_interno' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-indigo-600 text-white font-bold">
+                  <Coffee className="w-4 h-4" />
+                </span>
+                <h2 className="text-base font-bold text-indigo-950 dark:text-indigo-200 font-heading">
+                  Dashboard de Produtos de Uso do COZAM (Consumo Interno)
+                </h2>
+              </div>
+              <p className="text-xs text-indigo-800 dark:text-indigo-300 mt-1">
+                Controle de suprimentos para uso e funcionamento do consórcio: Café, Água Mineral, Material de Expediente, Limpeza e EPIs.
+              </p>
+            </div>
+            <Link to="/ordens/nova">
+              <Button variant="primary" size="sm" icon={<Plus className="w-3.5 h-3.5" />} className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0">
+                Emitir OF de Consumo Interno
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard
+              title="Total Contratado (Consumo Interno)"
+              value={cozamUsoContracted}
+              isCurrency
+              subtitle={`${cozamUsoContracts.length} contrato(s) administrativo(s)`}
+              tone="default"
+              icon={<Coffee className="w-5 h-5 text-indigo-600" />}
+            />
+            <StatCard
+              title="Consumo Solicitado em OFs"
+              value={cozamUsoRequested}
+              isCurrency
+              subtitle="Materiais já requisitados pelo consórcio"
+              tone="default"
+              icon={<TrendingUp className="w-5 h-5 text-amber-600" />}
+            />
+            <StatCard
+              title="Saldo de Dotação Disponível"
+              value={cozamUsoRemaining}
+              isCurrency
+              subtitle="Limite restante para novas requisições"
+              tone="green"
+              icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+            />
+          </div>
+
+          {cozamUsoContracts.length > 0 && (
+            <Card title="Contratos de Suprimentos & Consumo do COZAM">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase tracking-wider text-2xs">
+                      <th className="py-2.5">Contrato</th>
+                      <th className="py-2.5">Fornecedor</th>
+                      <th className="py-2.5 text-right">Valor Total</th>
+                      <th className="py-2.5 text-right">Consumido</th>
+                      <th className="py-2.5 text-right">Saldo Restante</th>
+                      <th className="py-2.5 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {cozamUsoContracts.map((c: any) => (
+                      <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <td className="py-2.5 font-bold text-slate-900 dark:text-white">
+                          Contrato nº {c.contract_number}/{c.year}
+                          <p className="text-2xs text-slate-400 font-normal line-clamp-1">{c.object}</p>
+                        </td>
+                        <td className="py-2.5 font-medium">{c.supplier_name}</td>
+                        <td className="py-2.5 text-right font-semibold">{formatBRL(c.total_amount)}</td>
+                        <td className="py-2.5 text-right text-amber-700 dark:text-amber-400 font-semibold">{formatBRL(c.requested_amount)}</td>
+                        <td className="py-2.5 text-right text-emerald-600 dark:text-emerald-400 font-bold">{formatBRL(c.remaining_amount)}</td>
+                        <td className="py-2.5 text-right">
+                          <Link to={`/contratos/${c.id}`} className="text-2xs font-bold text-indigo-600 hover:underline">
+                            Ver Itens & Saldo →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* PAINEL CATEGORIA 3: Visão Geral Consolidada */}
+      {dashboardCategory === 'geral' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Gestão de Saldos Contratuais COZAM */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ScrollText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                  Contratos & Saldos Globais Disponíveis
+                </h2>
+              </div>
+              <Link
+                to="/contratos"
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+              >
+                Ver todos os contratos
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <StatCard
+                title="Valor Total Contratado (Global)"
+                value={totalContractedAmount}
+                isCurrency
+                subtitle={`${activeContractsCount} contrato(s) ativo(s) em vigência`}
+                tone="default"
+                icon={<ScrollText className="w-5 h-5 text-indigo-600" />}
+              />
+              <StatCard
+                title="Total Solicitado em OFs"
+                value={totalRequestedAmount}
+                isCurrency
+                subtitle="Montante demandado através de Ordens de Fornecimento"
+                tone="default"
+                icon={<TrendingUp className="w-5 h-5 text-amber-600" />}
+              />
+              <StatCard
+                title="Saldo Contratual Disponível"
+                value={totalRemainingAmount}
+                isCurrency
+                subtitle="Limite financeiro remanescente para emissão de novas OFs"
+                tone="green"
+                icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+              />
+            </div>
+
+            {expiringContractsCount > 0 && (
+              <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2.5 text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>
+                    <strong>Atenção:</strong> {expiringContractsCount} contrato(s) com vigência expirando nos próximos 30 dias.
+                  </span>
+                </div>
+                <Link
+                  to="/contratos"
+                  className="font-bold text-amber-900 dark:text-amber-200 underline hover:text-amber-700"
+                >
+                  Conferir e Aditivar
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Cartões Financeiros Principais (Valores Confirmados) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

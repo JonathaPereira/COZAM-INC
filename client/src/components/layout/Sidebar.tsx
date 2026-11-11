@@ -54,10 +54,9 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
       ],
     },
     {
-      title: 'Contratos & Licitações',
+      title: 'Contratos & Compras',
       items: [
-        { to: '/contratos', label: 'Contratos & Saldos', icon: <ScrollText className="w-4 h-4" />, perm: 'contracts.view' },
-        { to: '/licitacoes', label: 'Processos Licitatórios', icon: <Gavel className="w-4 h-4" />, perm: 'procurements.view' },
+        { to: '/contratos', label: 'Contratos & Licitações', icon: <ScrollText className="w-4 h-4" />, perm: 'contracts.view' },
         { to: '/ordens', label: 'Ordens de Fornecimento', icon: <FileText className="w-4 h-4" />, perm: 'processes.view' },
         { to: '/ordens/nova', label: 'Emitir Nova OF', icon: <FilePlus2 className="w-4 h-4" />, perm: 'supply_orders.write' },
         { to: '/processos', label: 'Processos Adm.', icon: <FolderKanban className="w-4 h-4" />, perm: 'processes.view' },

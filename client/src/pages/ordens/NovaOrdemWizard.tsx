@@ -13,8 +13,10 @@ import {
   Download,
   FileSpreadsheet,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { downloadSupplyOrderPdf, downloadSupplyOrderXlsx } from '../../lib/documents.js';
 
 export function NovaOrdemWizard() {
   const navigate = useNavigate();
@@ -475,22 +477,36 @@ export function NovaOrdemWizard() {
 
           {/* Botões de Download em Alta Fidelidade */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <a
-              href={`/api/supply-orders/${createdOrder.id}/pdf`}
-              target="_blank"
-              rel="noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-xs transition-colors"
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  toast.loading('Gerando PDF Oficial...', { id: 'pdf-dl' });
+                  await downloadSupplyOrderPdf(createdOrder.id, createdOrder.of_number);
+                  toast.success('Download do PDF Oficial concluído!', { id: 'pdf-dl' });
+                } catch (e: any) {
+                  toast.error(e.message || 'Erro ao baixar PDF.', { id: 'pdf-dl' });
+                }
+              }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-xs transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4" /> Download em PDF Oficial
-            </a>
-            <a
-              href={`/api/supply-orders/${createdOrder.id}/xlsx`}
-              target="_blank"
-              rel="noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-xs transition-colors"
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  toast.loading('Gerando Planilha XLSX...', { id: 'xlsx-dl' });
+                  await downloadSupplyOrderXlsx(createdOrder.id, createdOrder.of_number);
+                  toast.success('Download da Planilha XLSX concluído!', { id: 'xlsx-dl' });
+                } catch (e: any) {
+                  toast.error(e.message || 'Erro ao baixar XLSX.', { id: 'xlsx-dl' });
+                }
+              }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-xs transition-colors cursor-pointer"
             >
               <FileSpreadsheet className="w-4 h-4" /> Download Planilha XLSX Oficial
-            </a>
+            </button>
           </div>
 
           <div className="pt-6 border-t border-slate-100 dark:border-slate-700 flex justify-center gap-4">

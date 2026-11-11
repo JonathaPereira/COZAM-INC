@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, getErrorMessage } from '../../lib/api.js';
-import { UploadCloud, CheckCircle2, AlertTriangle, FileText, Check, ArrowRight, RefreshCw } from 'lucide-react';
+import { UploadCloud, CheckCircle2, AlertTriangle, FileText, Check, ArrowRight, RefreshCw, Plus, Building } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ImportarContratoModalProps {
@@ -15,6 +15,28 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
   const [file, setFile] = useState<File | null>(null);
   const [extractedData, setExtractedData] = useState<any | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
+
+  // Consulta fornecedores cadastrados
+  const { data: suppliers = [] } = useQuery<any[]>({
+    queryKey: ['suppliers-list'],
+    queryFn: () => api.get('/suppliers'),
+  });
+
+  // Cadastro rápido do fornecedor do PDF se não existir
+  const quickRegisterSupplierMutation = useMutation({
+    mutationFn: async (supplierData: any) => api.post<any>('/suppliers', supplierData),
+    onSuccess: (newSupplier) => {
+      toast.success(`Fornecedor ${newSupplier.name} cadastrado com sucesso!`);
+      queryClient.invalidateQueries({ queryKey: ['suppliers-list'] });
+      setExtractedData((prev: any) => ({
+        ...prev,
+        matched_supplier: newSupplier,
+      }));
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err));
+    },
+  });
 
   // Parse mutation
   const parseMutation = useMutation({
@@ -227,15 +249,61 @@ export function ImportarContratoModal({ isOpen, onClose }: ImportarContratoModal
               </div>
               <div className="md:col-span-2">
                 <label className="font-semibold block mb-1 text-slate-600 dark:text-slate-400">
-                  Fornecedor Extraído (CNPJ: {extractedData.supplier_cnpj || 'Não identificado'})
+                  Fornecedor Contratado (CNPJ: {extractedData.supplier_cnpj || 'Não identificado'})
                 </label>
                 {extractedData.matched_supplier ? (
-                  <div className="flex items-center gap-2 px-2 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded text-emerald-800 dark:text-emerald-200 font-semibold">
-                    <Check className="w-3.5 h-3.5" /> {extractedData.matched_supplier.name} (Vinculado)
+                  <div className="flex items-center justify-between px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded text-emerald-800 dark:text-emerald-200 font-semibold">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      {extractedData.matched_supplier.name} (Vinculado)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setExtractedData({ ...extractedData, matched_supplier: null })}
+                      className="text-2xs text-slate-500 hover:text-slate-700 underline shrink-0 ml-2"
+                    >
+                      Trocar
+                    </button>
                   </div>
                 ) : (
-                  <div className="px-2 py-1.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded text-rose-700 dark:text-rose-300 font-semibold">
-                    CNPJ não cadastrado no sistema
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded text-amber-800 dark:text-amber-200">
+                      <span className="text-2xs font-medium">CNPJ não encontrado na base</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const supName = prompt('Informe a Razão Social ou Nome do Fornecedor:', extractedData.supplier_cnpj ? `Fornecedor ${extractedData.supplier_cnpj}` : 'Novo Fornecedor');
+                          if (supName && supName.trim()) {
+                            quickRegisterSupplierMutation.mutate({
+                              name: supName.trim(),
+                              cnpj: extractedData.supplier_cnpj || null,
+                              legal_name: supName.trim(),
+                            });
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-2xs font-bold shadow-xs transition-colors shrink-0"
+                      >
+                        + Cadastrar Este Fornecedor
+                      </button>
+                    </div>
+                    <div>
+                      <select
+                        onChange={(e) => {
+                          const found = suppliers.find((s) => s.id === e.target.value);
+                          if (found) {
+                            setExtractedData({ ...extractedData, matched_supplier: found });
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs text-slate-800 dark:text-slate-200"
+                      >
+                        <option value="">Ou selecione um fornecedor existente...</option>
+                        {suppliers.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} {s.cnpj ? `(${s.cnpj})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )}
               </div>

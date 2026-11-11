@@ -30,6 +30,7 @@ import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
 import { EditSupplyOrderModal } from '../../components/ordens/EditSupplyOrderModal.js';
 import { UploadSignedOfModal } from '../../components/orders/UploadSignedOfModal.js';
+import { downloadSupplyOrderPdf, downloadSupplyOrderXlsx } from '../../lib/documents.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 
 export function OrdensList() {
@@ -379,16 +380,38 @@ export function OrdemDetail() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Ações de Download Oficial */}
-          <a href={`/api/supply-orders/${id}/pdf`} target="_blank" rel="noreferrer">
-            <Button variant="secondary" size="sm" icon={<Download className="w-3.5 h-3.5 text-indigo-600" />}>
-              PDF Oficial
-            </Button>
-          </a>
-          <a href={`/api/supply-orders/${id}/xlsx`} target="_blank" rel="noreferrer">
-            <Button variant="secondary" size="sm" icon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}>
-              Planilha XLSX
-            </Button>
-          </a>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Download className="w-3.5 h-3.5 text-indigo-600" />}
+            onClick={async () => {
+              try {
+                toast.loading('Gerando PDF Oficial...', { id: 'pdf-dl-detail' });
+                await downloadSupplyOrderPdf(id!, supply_order.of_number);
+                toast.success('Download do PDF Oficial concluído!', { id: 'pdf-dl-detail' });
+              } catch (e: any) {
+                toast.error(e.message || 'Erro ao baixar PDF.', { id: 'pdf-dl-detail' });
+              }
+            }}
+          >
+            PDF Oficial
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}
+            onClick={async () => {
+              try {
+                toast.loading('Gerando Planilha XLSX...', { id: 'xlsx-dl-detail' });
+                await downloadSupplyOrderXlsx(id!, supply_order.of_number);
+                toast.success('Download da Planilha XLSX concluído!', { id: 'xlsx-dl-detail' });
+              } catch (e: any) {
+                toast.error(e.message || 'Erro ao baixar XLSX.', { id: 'xlsx-dl-detail' });
+              }
+            }}
+          >
+            Planilha XLSX
+          </Button>
           <Button
             variant="primary"
             size="sm"

@@ -42,6 +42,15 @@ export function createApp(): Express {
   app.use((req, res, next) => {
     req.requestId = (req.headers['x-request-id'] as string) || crypto.randomUUID();
     res.setHeader('X-Request-Id', req.requestId);
+
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      if (req.originalUrl.startsWith('/api')) {
+        console.log(`[HTTP] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${duration}ms)`);
+      }
+    });
+
     next();
   });
 

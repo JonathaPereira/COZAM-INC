@@ -39,14 +39,20 @@ function getSupabaseClient() {
 
 export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  let token: string | null = null;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7).trim();
+  } else if (typeof req.query.token === 'string' && req.query.token.trim()) {
+    token = req.query.token.trim();
+  }
+
+  if (!token) {
     res.status(401).json({
       error: { code: 'NAO_AUTENTICADO', message: 'Token de autenticação ausente ou inválido.' },
     });
     return;
   }
-
-  const token = authHeader.slice(7).trim();
   let userId: string | null = null;
   let userEmail: string | null = null;
 

@@ -24,6 +24,41 @@ export function NovoContratoModal({ isOpen, onClose, initialData }: NovoContrato
   const [endDate, setEndDate] = useState(initialData?.end_date || '');
   const [deliveryDays, setDeliveryDays] = useState(initialData?.delivery_deadline_days || 15);
 
+  // Estados para processo licitatório customizado / inline
+  const [isNewProcurement, setIsNewProcurement] = useState(false);
+  const [procProcessNumber, setProcProcessNumber] = useState('');
+  const [biddingNumber, setBiddingNumber] = useState('');
+  const [procModality, setProcModality] = useState('PREGAO_ELETRONICO');
+
+  // Estados para cadastro rápido de fornecedor inline
+  const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
+  const [newSupName, setNewSupName] = useState('');
+  const [newSupLegalName, setNewSupLegalName] = useState('');
+  const [newSupCnpj, setNewSupCnpj] = useState('');
+  const [newSupPhone, setNewSupPhone] = useState('');
+  const [newSupEmail, setNewSupEmail] = useState('');
+  const [newSupCity, setNewSupCity] = useState('');
+  const [newSupIsSimples, setNewSupIsSimples] = useState(false);
+
+  const createSupplierMutation = useMutation({
+    mutationFn: async (supData: any) => api.post<any>('/suppliers', supData),
+    onSuccess: (newSupplier) => {
+      toast.success(`Fornecedor ${newSupplier.name} cadastrado com sucesso!`);
+      queryClient.invalidateQueries({ queryKey: ['suppliers-list'] });
+      setSupplierId(newSupplier.id);
+      setIsCreatingSupplier(false);
+      setNewSupName('');
+      setNewSupLegalName('');
+      setNewSupCnpj('');
+      setNewSupPhone('');
+      setNewSupEmail('');
+      setNewSupCity('');
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err));
+    },
+  });
+
   const [items, setItems] = useState<any[]>(
     initialData?.items?.length
       ? initialData.items
@@ -118,7 +153,10 @@ export function NovoContratoModal({ isOpen, onClose, initialData }: NovoContrato
     createMutation.mutate({
       contract_number: contractNumber.trim(),
       year: Number(year),
-      procurement_id: procurementId || undefined,
+      procurement_id: isNewProcurement ? undefined : (procurementId || undefined),
+      procurement_process_number: isNewProcurement ? procProcessNumber.trim() : undefined,
+      bidding_number: isNewProcurement ? biddingNumber.trim() : undefined,
+      procurement_modality: isNewProcurement ? procModality : undefined,
       supplier_id: supplierId,
       object: object.trim(),
       legal_framework: legalFramework.trim(),
@@ -186,42 +224,177 @@ export function NovoContratoModal({ isOpen, onClose, initialData }: NovoContrato
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Fornecedor Contratado *
-              </label>
-              <select
-                required
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white"
-              >
-                <option value="">Selecione o Fornecedor...</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} {s.cnpj ? `(${s.cnpj})` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Fornecedor Contratado *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingSupplier(!isCreatingSupplier)}
+                  className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                >
+                  {isCreatingSupplier ? '← Selecionar da lista' : '+ Cadastrar Novo Fornecedor'}
+                </button>
+              </div>
+
+              {isCreatingSupplier ? (
+                <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 rounded-xl space-y-2.5 animate-in fade-in">
+                  <p className="text-2xs font-bold text-indigo-900 dark:text-indigo-200 uppercase tracking-wider">
+                    Cadastro Rápido de Fornecedor
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Nome Fantasia *"
+                      required={isCreatingSupplier}
+                      value={newSupName}
+                      onChange={(e) => setNewSupName(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white dark:bg-slate-800 border rounded text-xs"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Razão Social"
+                      value={newSupLegalName}
+                      onChange={(e) => setNewSupLegalName(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white dark:bg-slate-800 border rounded text-xs"
+                    />
+                    <input
+                      type="text"
+                      placeholder="CNPJ (ex: 00.000.000/0001-00)"
+                      value={newSupCnpj}
+                      onChange={(e) => setNewSupCnpj(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white dark:bg-slate-800 border rounded text-xs"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Cidade / UF (ex: Satuba/AL)"
+                      value={newSupCity}
+                      onChange={(e) => setNewSupCity(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white dark:bg-slate-800 border rounded text-xs"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Telefone"
+                      value={newSupPhone}
+                      onChange={(e) => setNewSupPhone(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white dark:bg-slate-800 border rounded text-xs"
+                    />
+                    <input
+                      type="email"
+                      placeholder="E-mail de Contato"
+                      value={newSupEmail}
+                      onChange={(e) => setNewSupEmail(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white dark:bg-slate-800 border rounded text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 text-2xs text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newSupIsSimples}
+                        onChange={(e) => setNewSupIsSimples(e.target.checked)}
+                        className="rounded text-indigo-600"
+                      />
+                      Optante pelo Simples Nacional
+                    </label>
+                    <button
+                      type="button"
+                      disabled={!newSupName.trim() || createSupplierMutation.isPending}
+                      onClick={() => {
+                        createSupplierMutation.mutate({
+                          name: newSupName.trim(),
+                          legal_name: newSupLegalName.trim() || undefined,
+                          cnpj: newSupCnpj.trim() || undefined,
+                          city: newSupCity.trim() || undefined,
+                          phone: newSupPhone.trim() || undefined,
+                          email: newSupEmail.trim() || undefined,
+                          is_simples_nacional: newSupIsSimples,
+                        });
+                      }}
+                      className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+                    >
+                      {createSupplierMutation.isPending ? 'Salvando...' : 'Salvar Fornecedor'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <select
+                  required
+                  value={supplierId}
+                  onChange={(e) => setSupplierId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white"
+                >
+                  <option value="">Selecione o Fornecedor...</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} {s.cnpj ? `(${s.cnpj})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Processo Licitatório Vinculado
-              </label>
-              <select
-                value={procurementId}
-                onChange={(e) => setProcurementId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white"
-              >
-                <option value="">Selecione (Opcional)...</option>
-                {procurements.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.process_number}/{p.year} {p.bidding_number ? `— ${p.bidding_number}` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Processo Licitatório
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsNewProcurement(!isNewProcurement)}
+                  className="text-2xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                >
+                  {isNewProcurement ? '← Selecionar existente' : '+ Informar novo'}
+                </button>
+              </div>
+
+              {isNewProcurement ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Nº Processo (ex: 004/2026) *"
+                    required={isNewProcurement}
+                    value={procProcessNumber}
+                    onChange={(e) => setProcProcessNumber(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Licitação (ex: PE 02/2026)"
+                    value={biddingNumber}
+                    onChange={(e) => setBiddingNumber(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                  />
+                  <select
+                    value={procModality}
+                    onChange={(e) => setProcModality(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                  >
+                    <option value="PREGAO_ELETRONICO">Pregão Eletrônico</option>
+                    <option value="PREGAO_PRESENCIAL">Pregão Presencial</option>
+                    <option value="CONCORRENCIA">Concorrência</option>
+                    <option value="DISPENSA">Dispensa de Licitação</option>
+                    <option value="INEXIGIBILIDADE">Inexigibilidade</option>
+                    <option value="ADESAO_ATA">Adesão a Ata (Carona)</option>
+                    <option value="OUTRO">Outro Procedimento</option>
+                  </select>
+                </div>
+              ) : (
+                <select
+                  value={procurementId}
+                  onChange={(e) => setProcurementId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white"
+                >
+                  <option value="">Selecione (Opcional)...</option>
+                  {procurements.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.process_number}/{p.year} {p.bidding_number ? `— ${p.bidding_number}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
