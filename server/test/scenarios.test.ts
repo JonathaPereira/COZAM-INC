@@ -1183,4 +1183,92 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     expect(updatedRes.body.contract.end_date).toContain('2027-10-16');
     expect(updatedRes.body.amendments).toHaveLength(1);
   });
+
+  it('Cenário P: Controle de Saldo Contratual — Reserva de saldo, bloqueio de saldo insuficiente e cancelamento com liberação', async () => {
+    // 1. Cadastra contrato de 100 unidades de lâmpada LED a R$ 30,00 (Total R$ 3.000,00)
+    const ctRes = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '015/2026',
+        year: 2026,
+        supplier_id: mzSupplierId,
+        object: 'Aquisição de material de iluminação pública',
+        legal_framework: 'Lei 14.133/2021',
+        signing_date: '2026-05-01',
+        start_date: '2026-05-01',
+        end_date: '2027-05-01',
+        total_amount: 3000.0,
+        status: 'ATIVO',
+        items: [
+          {
+            item_code: '2-1',
+            description: 'Lâmpada LED 50W',
+            category: 'MATERIAL_ELETRICO',
+            unit: 'Unidade',
+            original_quantity: 100,
+            unit_price: 30.0,
+            total_price: 3000.0,
+          },
+        ],
+      })
+      .expect(201);
+
+    const contractId = ctRes.body.id;
+    const detail = await request(app).get(`/api/contracts/${contractId}`).set('Authorization', `Bearer ${adminToken}`);
+    const itemId = detail.body.items[0].id;
+    expect(detail.body.items[0].available_quantity).toBe(100);
+
+    // 2. Emite OF de 25 unidades (R$ 750,00)
+    const ofRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_id: contractId,
+        supplier_id: mzSupplierId,
+        issue_date: '2026-05-10',
+        municipality: 'Santana do Mundaú',
+        items: [{ contract_item_id: itemId, quantity: 25 }],
+      })
+      .expect(201);
+
+    expect(ofRes.body.status).toBe('AGUARDANDO_ASSINATURA');
+    expect(ofRes.body.total_value).toBe(750);
+
+    // 3. Verifica saldo: reservado = 25, disponível = 75
+    const check1 = await request(app).get(`/api/contracts/${contractId}`).set('Authorization', `Bearer ${adminToken}`);
+    expect(check1.body.items[0].reserved_quantity).toBe(25);
+    expect(check1.body.items[0].available_quantity).toBe(75);
+
+    // 4. Tentativa de emitir OF com 90 unidades (saldo disponível é 75) -> Deve falhar com 422
+    const failRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_id: contractId,
+        supplier_id: mzSupplierId,
+        issue_date: '2026-05-11',
+        municipality: 'Santana do Mundaú',
+        items: [{ contract_item_id: itemId, quantity: 90 }],
+      })
+      .expect(422);
+
+    expect(failRes.body.error.code).toBe('SALDO_CONTRATUAL_INSUFICIENTE');
+
+    // 5. Cancela a OF de 25 unidades antes de assinar -> Reserva deve ser liberada
+    const cancelRes = await request(app)
+      .post(`/api/supply-orders/${ofRes.body.id}/cancel`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        reason: 'Cancelamento por solicitação da Secretaria de Obras antes da emissão da via física',
+      })
+      .expect(200);
+
+    expect(cancelRes.body.supply_order.status).toBe('CANCELADA');
+
+    // 6. Verifica que a reserva foi liberada e o saldo disponível voltou para 100
+    const check2 = await request(app).get(`/api/contracts/${contractId}`).set('Authorization', `Bearer ${adminToken}`);
+    expect(check2.body.items[0].reserved_quantity).toBe(0);
+    expect(check2.body.items[0].available_quantity).toBe(100);
+  });
 });
