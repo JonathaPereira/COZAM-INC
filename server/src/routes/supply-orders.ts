@@ -33,6 +33,7 @@ supplyOrdersRouter.get('/supply-orders', authenticate, requirePermission('proces
     const pool = getPool();
     const processId = typeof req.query.process_id === 'string' ? req.query.process_id.trim() : '';
     const supplierId = typeof req.query.supplier_id === 'string' ? req.query.supplier_id.trim() : '';
+    const municipality = typeof req.query.municipality === 'string' ? req.query.municipality.trim() : '';
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
 
     const where: string[] = ['1=1'];
@@ -46,9 +47,15 @@ supplyOrdersRouter.get('/supply-orders', authenticate, requirePermission('proces
       params.push(supplierId);
       where.push(`so.supplier_id = $${params.length}`);
     }
+    if (municipality) {
+      params.push(`%${municipality}%`);
+      where.push(`exists (select 1 from public.invoices i where i.supply_order_id = so.id and i.municipality ilike $${params.length})`);
+    }
     if (search) {
       params.push(`%${search}%`);
-      where.push(`(so.of_number ilike $${params.length} or ap.process_number ilike $${params.length} or s.name ilike $${params.length})`);
+      where.push(
+        `(so.of_number ilike $${params.length} or ap.process_number ilike $${params.length} or s.name ilike $${params.length} or exists (select 1 from public.invoices i where i.supply_order_id = so.id and i.municipality ilike $${params.length}))`
+      );
     }
 
     const result = await pool.query(
@@ -56,6 +63,7 @@ supplyOrdersRouter.get('/supply-orders', authenticate, requirePermission('proces
               cb.full_name as created_by_name,
               (select count(*)::int from public.invoices i where i.supply_order_id = so.id and i.cancelled_at is null) as invoices_count,
               (select coalesce(sum(i.amount), 0) from public.invoices i where i.supply_order_id = so.id and i.cancelled_at is null and i.verified) as invoices_total,
+              (select string_agg(distinct i.municipality, ', ') from public.invoices i where i.supply_order_id = so.id and i.municipality is not null and trim(i.municipality) <> '') as municipalities,
               (select to_jsonb(d.*) from public.documents d where d.supply_order_id = so.id and d.kind = 'OF' and d.is_current) as document
          from public.supply_orders so
          join public.suppliers s on s.id = so.supplier_id
@@ -201,19 +209,28 @@ supplyOrdersRouter.post(
 supplyOrdersRouter.patch(
   '/supply-orders/:id',
   authenticate,
-  requirePermission('supply_orders.write'),
   async (req, res, next) => {
     try {
+      // 1. Apenas o perfil administrador pode editar
+      if (req.user?.role !== 'admin') {
+        throw new AppError('Apenas o Administrador possui permissão para editar dados de Ordens de Fornecimento.', {
+          code: 'ACESSO_NEGADO',
+          status: 403,
+        });
+      }
+
       const { id } = req.params;
       const data = updateSupplyOrderSchema.parse(req.body);
+      const reason = data.reason?.trim() || 'Edição de dados pelo Administrador';
 
       const result = await runInTransaction(
-        { actorId: req.user!.id, reason: data.reason || null, requestId: req.requestId },
+        { actorId: req.user!.id, reason, requestId: req.requestId },
         async (client) => {
           const cur = await client.query('select * from public.supply_orders where id = $1', [id]);
           if (cur.rowCount === 0) {
             throw new AppError('Ordem de Fornecimento não encontrada.', { code: 'NAO_ENCONTRADO', status: 404 });
           }
+          const oldData = cur.rows[0];
 
           const upd = await client.query(
             `update public.supply_orders
@@ -236,6 +253,25 @@ supplyOrdersRouter.patch(
               id,
             ]
           );
+
+          // Registra na auditoria
+          await client.query(
+            `insert into public.audit_logs (
+              actor_id, actor_name, actor_role, action, entity_type, entity_id,
+              summary, reason, old_data, new_data
+            ) values ($1, $2, $3, 'OF_ALTERADA', 'supply_orders', $4, $5, $6, $7, $8)`,
+            [
+              req.user!.id,
+              req.user!.full_name || 'Administrador',
+              req.user!.role,
+              id,
+              `Alteração de dados da Ordem de Fornecimento nº ${upd.rows[0].of_number}`,
+              reason,
+              JSON.stringify(oldData),
+              JSON.stringify(upd.rows[0]),
+            ]
+          );
+
           return upd.rows[0];
         }
       );
@@ -319,7 +355,7 @@ supplyOrdersRouter.post(
   }
 );
 
-// Exclusão Administrativa de Ordem de Fornecimento anexada por engano (apenas admin e sem NFs vinculadas)
+// Exclusão Administrativa de Ordem de Fornecimento + Notas Fiscais vinculadas (apenas admin e sem pagamentos efetivados)
 supplyOrdersRouter.delete('/supply-orders/:id', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -340,31 +376,95 @@ supplyOrdersRouter.delete('/supply-orders/:id', authenticate, async (req, res, n
     }
     const order = ofRes.rows[0];
 
-    // 3. Valida se existem Notas Fiscais vinculadas
-    const invCheck = await pool.query(
-      `select count(*)::int as count from public.invoices where supply_order_id = $1`,
+    // 3. Valida se existem Notas Fiscais com pagamentos válidos efetivados
+    const payCheck = await pool.query(
+      `select count(*)::int as count from public.payments p
+       join public.invoices i on i.id = p.invoice_id
+       where i.supply_order_id = $1 and p.status = 'VALIDO'`,
       [id]
     );
-    if ((invCheck.rows[0]?.count || 0) > 0) {
+    if ((payCheck.rows[0]?.count || 0) > 0) {
       throw new AppError(
-        'Esta Ordem de Fornecimento possui Notas Fiscais vinculadas. Exclua ou desvincule as notas fiscais antes de excluir a ordem.',
+        'Esta Ordem de Fornecimento possui Notas Fiscais com pagamentos já confirmados/efetivados e não pode ser excluída. Cancele/estorne os pagamentos antes de excluir.',
         { code: 'REGRA_VIOLADA', status: 400 }
       );
     }
 
+    // 4. Busca dados das notas fiscais vinculadas para registro detalhado na auditoria
+    const invRes = await pool.query(
+      `select * from public.v_invoices where supply_order_id = $1`,
+      [id]
+    );
+    const linkedInvoices = invRes.rows;
+
     const reason = typeof req.body?.reason === 'string' && req.body.reason.trim()
       ? req.body.reason.trim()
-      : 'Ordem de Fornecimento anexada incorretamente pelo operador.';
+      : 'Ordem de Fornecimento e notas vinculadas excluídas pelo Administrador.';
 
     await runInTransaction(
       { actorId: req.user.id, reason, requestId: req.requestId },
       async (client) => {
-        // Remove documentos vinculados (PDF da OF)
+        // Remove documentos vinculados aos pagamentos das NFs desta OF
+        await client.query(
+          `delete from public.documents
+            where payment_id in (
+              select p.id from public.payments p
+              join public.invoices i on i.id = p.invoice_id
+              where i.supply_order_id = $1
+            )`,
+          [id]
+        );
+
+        // Remove pagamentos das NFs desta OF
+        await client.query(
+          `delete from public.payments
+            where invoice_id in (select id from public.invoices where supply_order_id = $1)`,
+          [id]
+        );
+
+        // Remove históricos de pendências das NFs desta OF
+        await client.query(
+          `delete from public.historical_statuses
+            where invoice_id in (select id from public.invoices where supply_order_id = $1)`,
+          [id]
+        );
+
+        // Remove documentos vinculados às NFs desta OF
+        await client.query(
+          `delete from public.documents
+            where invoice_id in (select id from public.invoices where supply_order_id = $1)`,
+          [id]
+        );
+
+        // Remove as NFs vinculadas a esta OF
+        await client.query('delete from public.invoices where supply_order_id = $1', [id]);
+
+        // Remove documentos vinculados à própria OF (PDF da OF)
         await client.query('delete from public.documents where supply_order_id = $1', [id]);
+
         // Exclui a OF
         await client.query('delete from public.supply_orders where id = $1', [id]);
 
-        // Registra log formal de auditoria
+        // Registra logs de auditoria para cada NF excluída em conjunto
+        for (const inv of linkedInvoices) {
+          await client.query(
+            `insert into public.audit_logs (
+              actor_id, actor_name, actor_role, action, entity_type, entity_id,
+              summary, reason, old_data
+            ) values ($1, $2, $3, 'NF_EXCLUIDA', 'invoices', $4, $5, $6, $7)`,
+            [
+              req.user!.id,
+              req.user!.full_name || 'Administrador',
+              req.user!.role,
+              inv.id,
+              `Exclusão da NF nº ${inv.invoice_number} junto à OF nº ${order.of_number}`,
+              reason,
+              JSON.stringify(inv),
+            ]
+          );
+        }
+
+        // Registra log formal de auditoria da OF
         await client.query(
           `insert into public.audit_logs (
             actor_id, actor_name, actor_role, action, entity_type, entity_id,
@@ -375,7 +475,7 @@ supplyOrdersRouter.delete('/supply-orders/:id', authenticate, async (req, res, n
             req.user!.full_name || 'Administrador',
             req.user!.role,
             id,
-            `Exclusão da Ordem de Fornecimento nº ${order.of_number}`,
+            `Exclusão da Ordem de Fornecimento nº ${order.of_number}${linkedInvoices.length > 0 ? ` e de ${linkedInvoices.length} nota(s) vinculada(s)` : ''}`,
             reason,
             JSON.stringify(order),
           ]
@@ -383,7 +483,11 @@ supplyOrdersRouter.delete('/supply-orders/:id', authenticate, async (req, res, n
       }
     );
 
-    res.json({ success: true, message: `Ordem de Fornecimento nº ${order.of_number} excluída com sucesso.` });
+    const message = linkedInvoices.length > 0
+      ? `Ordem de Fornecimento nº ${order.of_number} e ${linkedInvoices.length} nota(s) fiscal(is) vinculada(s) excluída(s) com sucesso.`
+      : `Ordem de Fornecimento nº ${order.of_number} excluída com sucesso.`;
+
+    res.json({ success: true, message });
   } catch (err) {
     next(err);
   }

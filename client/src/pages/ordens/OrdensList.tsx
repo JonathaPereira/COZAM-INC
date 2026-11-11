@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Plus, Search, Building2, Calendar, Eye, ArrowLeft, Trash2 } from 'lucide-react';
+import { FileText, Plus, Search, Building2, Calendar, Eye, ArrowLeft, Trash2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api.js';
 import type { SupplyOrderRow } from '@cozam/shared';
@@ -12,30 +12,52 @@ import { Textarea } from '../../components/ui/Input.js';
 import { FileDropzone } from '../../components/ui/FileDropzone.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
+import { EditSupplyOrderModal } from '../../components/ordens/EditSupplyOrderModal.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 
 export function OrdensList() {
   const [search, setSearch] = useState('');
+  const [municipality, setMunicipality] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<SupplyOrderRow | null>(null);
+  const [editingOf, setEditingOf] = useState<SupplyOrderRow | null>(null);
   const { profile, can } = useAuth();
   const canWrite = can('supply_orders.write');
 
+  const { data: municipalitiesData } = useQuery({
+    queryKey: ['municipalities'],
+    queryFn: () => api.get<{ municipalities: string[] }>('/invoices/municipalities'),
+  });
+
   const { data: ofs, isLoading, refetch } = useQuery({
-    queryKey: ['supply-orders', search],
-    queryFn: () => api.get<SupplyOrderRow[]>('/supply-orders', { search }),
+    queryKey: ['supply-orders', search, municipality],
+    queryFn: () => api.get<SupplyOrderRow[]>('/supply-orders', { search, municipality }),
   });
 
   const handleDeleteOf = async (reason: string) => {
     if (!deleteTarget) return;
     try {
       await api.delete(`/supply-orders/${deleteTarget.id}`, { data: { reason } });
-      toast.success(`Ordem de Fornecimento nº ${deleteTarget.of_number} excluída com sucesso.`);
+      toast.success(
+        deleteTarget.invoices_count > 0
+          ? `Ordem nº ${deleteTarget.of_number} e ${deleteTarget.invoices_count} nota(s) vinculada(s) excluída(s) com sucesso.`
+          : `Ordem de Fornecimento nº ${deleteTarget.of_number} excluída com sucesso.`
+      );
       setDeleteTarget(null);
       refetch();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao excluir OF.');
     }
   };
+
+  const municipalitiesList = Array.from(
+    new Set([
+      'Santana do Mundaú',
+      'Branquinha',
+      'União dos Palmares',
+      'Carneiros',
+      ...(municipalitiesData?.municipalities || []),
+    ])
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
   return (
     <div className="space-y-6">
@@ -58,15 +80,41 @@ export function OrdensList() {
         )}
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Pesquisar nº de OF, fornecedor ou processo..."
-          className="w-full bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-100 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-600 focus:outline-none"
-        />
+      {/* Barra de Filtros e Pesquisa */}
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="sm:col-span-2">
+          <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
+            Pesquisar por OF, Fornecedor, Processo ou Município
+          </label>
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Digite o número da OF, fornecedor, processo ou município..."
+              className="w-full text-xs pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-emerald-600 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
+            Município Consorciado
+          </label>
+          <select
+            value={municipality}
+            onChange={(e) => setMunicipality(e.target.value)}
+            className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+          >
+            <option value="">Todos os municípios</option>
+            {municipalitiesList.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <Card className="p-0">
@@ -89,7 +137,14 @@ export function OrdensList() {
               {ofs && ofs.length > 0 ? (
                 ofs.map((o) => (
                   <tr key={o.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">{o.of_number}</td>
+                    <td className="py-3 px-4">
+                      <span className="font-bold text-slate-900 dark:text-slate-100">{o.of_number}</span>
+                      {o.municipalities && (
+                        <span className="block mt-0.5 text-2xs font-semibold text-emerald-700 dark:text-emerald-400">
+                          📍 {o.municipalities}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-4">
                       <span className="font-semibold text-slate-800 dark:text-slate-200">{o.supplier_name}</span>
                     </td>
@@ -119,15 +174,29 @@ export function OrdensList() {
                             Ver
                           </Button>
                         </Link>
-                        {profile?.role === 'admin' && o.invoices_count === 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                            icon={<Trash2 className="w-3.5 h-3.5" />}
-                            onClick={() => setDeleteTarget(o)}
-                            title="Excluir OF anexada por engano"
-                          />
+                        {profile?.role === 'admin' && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                              icon={<Pencil className="w-3.5 h-3.5" />}
+                              onClick={() => setEditingOf(o)}
+                              title="Editar dados da OF"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                              icon={<Trash2 className="w-3.5 h-3.5" />}
+                              onClick={() => setDeleteTarget(o)}
+                              title={
+                                o.invoices_count > 0
+                                  ? `Excluir OF e ${o.invoices_count} nota(s) vinculada(s)`
+                                  : 'Excluir OF'
+                              }
+                            />
+                          </>
                         )}
                       </div>
                     </td>
@@ -151,8 +220,23 @@ export function OrdensList() {
         onConfirm={handleDeleteOf}
         title="Excluir Ordem de Fornecimento"
         itemIdentifier={`OF nº ${deleteTarget?.of_number} · ${deleteTarget?.supplier_name}`}
-        description="Tem certeza que deseja excluir esta Ordem de Fornecimento anexada por engano? Esta operação removerá a OF e os arquivos associados. Todos os dados serão registrados na auditoria."
-        confirmButtonText="Sim, excluir OF"
+        description={
+          deleteTarget?.invoices_count && deleteTarget.invoices_count > 0
+            ? `Tem certeza que deseja excluir esta Ordem de Fornecimento e todas as ${deleteTarget.invoices_count} Nota(s) Fiscal(is) vinculada(s)? Esta operação removerá a Ordem e todas as notas fiscais associadas da base e da fila de pagamentos. Todos os dados serão registrados na auditoria.`
+            : 'Tem certeza que deseja excluir esta Ordem de Fornecimento? Esta operação removerá a OF e os arquivos associados. Todos os dados serão registrados na auditoria.'
+        }
+        confirmButtonText={
+          deleteTarget?.invoices_count && deleteTarget.invoices_count > 0
+            ? 'Sim, excluir OF e Notas Vinculadas'
+            : 'Sim, excluir OF'
+        }
+      />
+
+      <EditSupplyOrderModal
+        isOpen={Boolean(editingOf)}
+        onClose={() => setEditingOf(null)}
+        onSuccess={refetch}
+        supplyOrder={editingOf}
       />
     </div>
   );
@@ -164,6 +248,7 @@ export function OrdemDetail() {
   const { profile } = useAuth();
   const [replaceModalOpen, setReplaceModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
   const [replaceReason, setReplaceReason] = useState('');
   const [replacing, setReplacing] = useState(false);
@@ -182,7 +267,11 @@ export function OrdemDetail() {
   const handleDeleteDetailOf = async (reason: string) => {
     try {
       await api.delete(`/supply-orders/${id}`, { data: { reason } });
-      toast.success('Ordem de Fornecimento excluída com sucesso.');
+      toast.success(
+        data?.invoices && data.invoices.length > 0
+          ? `Ordem de Fornecimento e ${data.invoices.length} nota(s) vinculada(s) excluída(s) com sucesso.`
+          : 'Ordem de Fornecimento excluída com sucesso.'
+      );
       navigate('/ordens');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao excluir OF.');
@@ -239,16 +328,26 @@ export function OrdemDetail() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {profile?.role === 'admin' && invoices.length === 0 && (
-            <Button
-              variant="danger"
-              size="sm"
-              icon={<Trash2 className="w-4 h-4" />}
-              onClick={() => setDeleteModalOpen(true)}
-              className="bg-rose-700 hover:bg-rose-800 font-bold shadow-xs"
-            >
-              Excluir OF
-            </Button>
+          {profile?.role === 'admin' && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Pencil className="w-4 h-4" />}
+                onClick={() => setEditModalOpen(true)}
+              >
+                Editar OF
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                icon={<Trash2 className="w-4 h-4" />}
+                onClick={() => setDeleteModalOpen(true)}
+                className="bg-rose-700 hover:bg-rose-800 font-bold shadow-xs"
+              >
+                Excluir OF
+              </Button>
+            </>
           )}
 
           <Link to="/lancamento">
@@ -396,8 +495,23 @@ export function OrdemDetail() {
         onConfirm={handleDeleteDetailOf}
         title="Excluir Ordem de Fornecimento"
         itemIdentifier={`OF nº ${supply_order.of_number} · ${supply_order.supplier_name}`}
-        description="Tem certeza que deseja excluir esta Ordem de Fornecimento anexada por engano? Esta operação removerá a OF e os arquivos associados. Todos os dados serão registrados na auditoria."
-        confirmButtonText="Sim, excluir OF"
+        description={
+          invoices.length > 0
+            ? `Tem certeza que deseja excluir esta Ordem de Fornecimento e todas as ${invoices.length} Nota(s) Fiscal(is) vinculada(s)? Esta operação removerá a Ordem e as notas vinculadas da base e da fila de pagamentos. Todos os dados serão registrados na auditoria.`
+            : 'Tem certeza que deseja excluir esta Ordem de Fornecimento anexada por engano? Esta operação removerá a OF e os arquivos associados. Todos os dados serão registrados na auditoria.'
+        }
+        confirmButtonText={
+          invoices.length > 0
+            ? 'Sim, excluir OF e Notas Vinculadas'
+            : 'Sim, excluir OF'
+        }
+      />
+
+      <EditSupplyOrderModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onSuccess={refetch}
+        supplyOrder={supply_order}
       />
     </div>
   );

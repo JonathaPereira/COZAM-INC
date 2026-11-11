@@ -13,6 +13,7 @@ import {
   DollarSign,
   Clock,
   Trash2,
+  Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api.js';
@@ -24,18 +25,21 @@ import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { ModalityBadge, ForwardBadge } from '../../components/ui/Badges.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
+import { EditInvoiceModal } from '../../components/notas/EditInvoiceModal.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 
 export function NotasFiscaisList() {
   const [search, setSearch] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [modality, setModality] = useState('');
+  const [municipality, setMunicipality] = useState('');
   const [status, setStatus] = useState('');
   const [forwardStatus, setForwardStatus] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<InvoiceRow | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceRow | null>(null);
   const { profile, can } = useAuth();
   const canWrite = can('invoices.write');
 
@@ -44,8 +48,13 @@ export function NotasFiscaisList() {
     queryFn: () => api.get<Supplier[]>('/suppliers'),
   });
 
+  const { data: municipalitiesData } = useQuery({
+    queryKey: ['municipalities'],
+    queryFn: () => api.get<{ municipalities: string[] }>('/invoices/municipalities'),
+  });
+
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['invoices-list', search, supplierId, modality, status, forwardStatus, dateFrom, dateTo, page],
+    queryKey: ['invoices-list', search, supplierId, modality, municipality, status, forwardStatus, dateFrom, dateTo, page],
     queryFn: () =>
       api.get<Paginated<InvoiceRow> & { summary: { amount: number; total_paid: number; balance: number } }>(
         '/invoices',
@@ -53,6 +62,7 @@ export function NotasFiscaisList() {
           search,
           supplier_id: supplierId,
           modality,
+          municipality,
           status,
           forward_status: forwardStatus,
           date_from: dateFrom,
@@ -62,6 +72,16 @@ export function NotasFiscaisList() {
         }
       ),
   });
+
+  const municipalitiesList = Array.from(
+    new Set([
+      'Santana do Mundaú',
+      'Branquinha',
+      'União dos Palmares',
+      'Carneiros',
+      ...(municipalitiesData?.municipalities || []),
+    ])
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
   const handleDeleteInvoice = async (reason: string) => {
     if (!deleteTarget) return;
@@ -115,14 +135,14 @@ export function NotasFiscaisList() {
       )}
 
       {/* Filtros Avançados */}
-      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <div className="sm:col-span-2">
           <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Pesquisa</label>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Nº da NF, fornecedor, processo..."
+            placeholder="Nº da NF, fornecedor, processo, município..."
             className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           />
         </div>
@@ -136,6 +156,24 @@ export function NotasFiscaisList() {
             <option value="">Todos</option>
             {suppliers?.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">Município</label>
+          <select
+            value={municipality}
+            onChange={(e) => {
+              setMunicipality(e.target.value);
+              setPage(1);
+            }}
+            className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+          >
+            <option value="">Todos</option>
+            {municipalitiesList.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
             ))}
           </select>
         </div>
@@ -241,14 +279,24 @@ export function NotasFiscaisList() {
                             Abrir
                           </Button>
                         </Link>
-                        {profile?.role === 'admin' && inv.total_paid === 0 && (
+                        {profile?.role === 'admin' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                            icon={<Pencil className="w-3.5 h-3.5" />}
+                            onClick={() => setEditingInvoice(inv)}
+                            title="Editar dados da NF"
+                          />
+                        )}
+                        {profile?.role === 'admin' && (inv.total_paid === 0 || !inv.total_paid) && (
                           <Button
                             variant="ghost"
                             size="sm"
                             className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                             icon={<Trash2 className="w-3.5 h-3.5" />}
                             onClick={() => setDeleteTarget(inv)}
-                            title="Excluir NF anexada por engano"
+                            title="Excluir Nota Fiscal"
                           />
                         )}
                       </div>
@@ -273,8 +321,15 @@ export function NotasFiscaisList() {
         onConfirm={handleDeleteInvoice}
         title="Excluir Nota Fiscal"
         itemIdentifier={`NF nº ${deleteTarget?.invoice_number} · ${deleteTarget?.supplier_name}`}
-        description="Tem certeza que deseja excluir esta Nota Fiscal anexada por engano? Esta operação removerá a nota e os arquivos associados. Todos os dados serão registrados na auditoria."
+        description="Tem certeza que deseja excluir esta Nota Fiscal? Esta operação removerá a nota e todos os documentos associados da base e da fila de pagamentos. Todos os dados serão registrados na auditoria."
         confirmButtonText="Sim, excluir NF"
+      />
+
+      <EditInvoiceModal
+        isOpen={Boolean(editingInvoice)}
+        onClose={() => setEditingInvoice(null)}
+        onSuccess={refetch}
+        invoice={editingInvoice}
       />
     </div>
   );

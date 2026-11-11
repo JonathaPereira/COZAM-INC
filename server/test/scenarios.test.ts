@@ -740,44 +740,27 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
       .send({ reason: 'Tentativa indevida' })
       .expect(403);
 
-    // 5. Admin tenta excluir a OF antes da NF -> 400 (possui NF vinculada)
-    await request(app)
+    // 5. Admin exclui a OF junto com a NF vinculada (exclusão de Ordem + Notas) com justificativa opcional
+    const delOfRes = await request(app)
       .delete(`/api/supply-orders/${supplyOrderId}`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ reason: 'Tentando apagar OF com NF' })
-      .expect(400);
-
-    // 6. Admin exclui a NF com justificativa
-    const delNfRes = await request(app)
-      .delete(`/api/invoices/${invoiceId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ reason: 'Anexada por engano no processo errado' })
+      .send({ reason: 'OF e NF geradas em duplicidade' })
       .expect(200);
 
-    expect(delNfRes.body.success).toBe(true);
+    expect(delOfRes.body.success).toBe(true);
 
-    // 7. NF não existe mais
+    // 6. Nem a NF nem a OF existem mais
     await request(app)
       .get(`/api/invoices/${invoiceId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(404);
 
-    // 8. Admin exclui a OF com justificativa
-    const delOfRes = await request(app)
-      .delete(`/api/supply-orders/${supplyOrderId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ reason: 'OF gerada em duplicidade' })
-      .expect(200);
-
-    expect(delOfRes.body.success).toBe(true);
-
-    // 9. OF não existe mais
     await request(app)
       .get(`/api/supply-orders/${supplyOrderId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(404);
 
-    // 10. Verifica se os registros de auditoria foram gerados
+    // 7. Verifica se os registros de auditoria foram gerados para a NF e para a OF
     const auditRes = await request(app)
       .get('/api/audit?action=NF_EXCLUIDA')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -785,6 +768,125 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
 
     const nfAudit = auditRes.body.data.find((a: any) => a.action === 'NF_EXCLUIDA' && a.entity_id === invoiceId);
     expect(nfAudit).toBeDefined();
-    expect(nfAudit.reason).toContain('Anexada por engano');
+    expect(nfAudit.reason).toContain('duplicidade');
+
+    const ofAuditRes = await request(app)
+      .get('/api/audit?action=OF_EXCLUIDA')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const ofAudit = ofAuditRes.body.data.find((a: any) => a.action === 'OF_EXCLUIDA' && a.entity_id === supplyOrderId);
+    expect(ofAudit).toBeDefined();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Cenário L: Edição de dados de Ordens e Notas (apenas Admin) e busca por município
+  // ---------------------------------------------------------------------------
+  it('Cenário L: Edição de dados de OF e NF ativa apenas para Admin e busca por município', async () => {
+    // 1. Cadastra Processo, Fornecedor e OF
+    const proc = await request(app)
+      .post('/api/processes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ process_number: 'PROC-EDIT-2026/01', description: 'Processo para teste de edição' })
+      .expect(201);
+
+    const sup = await request(app)
+      .post('/api/suppliers')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Fornecedor Edicao Teste Ltda', cnpj: '22.333.444/0001-55' })
+      .expect(201);
+
+    const ofRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('process_id', proc.body.id)
+      .field('supplier_id', sup.body.id)
+      .field('of_number', 'OF-EDIT-001')
+      .field('issue_date', '2026-07-01')
+      .field('total_value', '10000')
+      .attach('file', Buffer.from('%PDF-1.4 OF'), 'of.pdf')
+      .expect(201);
+
+    // 2. Cadastra NF com município e encaminha para pagamento
+    const nfRes = await request(app)
+      .post('/api/invoices')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('supply_order_id', ofRes.body.id)
+      .field('invoice_number', 'NF-EDIT-901')
+      .field('issue_date', '2026-07-05')
+      .field('amount', '3500')
+      .field('modality', 'COMPRA_COMPARTILHADA')
+      .field('municipality', 'Branquinha')
+      .field('forward', 'true')
+      .attach('file', Buffer.from('%PDF-1.4 NF'), 'nf.pdf')
+      .expect(201);
+
+    const ofId = ofRes.body.id;
+    const nfId = nfRes.body.id;
+
+    // 3. Usuário de Pagamentos tenta editar dados da OF -> 403 Forbidden
+    await request(app)
+      .patch(`/api/supply-orders/${ofId}`)
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .send({ of_number: 'OF-HACKED' })
+      .expect(403);
+
+    // 4. Usuário de Pagamentos tenta editar dados da NF -> 403 Forbidden
+    await request(app)
+      .patch(`/api/invoices/${nfId}`)
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .send({ invoice_number: 'NF-HACKED' })
+      .expect(403);
+
+    // 5. Admin edita dados da OF com sucesso
+    const editOfRes = await request(app)
+      .patch(`/api/supply-orders/${ofId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        of_number: 'OF-EDIT-001-REV',
+        total_value: 12000,
+        notes: 'Observação atualizada',
+      })
+      .expect(200);
+
+    expect(editOfRes.body.of_number).toBe('OF-EDIT-001-REV');
+    expect(editOfRes.body.total_value).toBe(12000);
+
+    // 6. Admin edita dados da NF com sucesso (incluindo município e valor)
+    const editNfRes = await request(app)
+      .patch(`/api/invoices/${nfId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        invoice_number: 'NF-EDIT-901-REV',
+        amount: 4000,
+        municipality: 'União dos Palmares',
+        reason: 'Ajuste de município e valor homologado',
+      })
+      .expect(200);
+
+    expect(editNfRes.body.invoice_number).toBe('NF-EDIT-901-REV');
+    expect(editNfRes.body.amount).toBe(4000);
+
+    // 7. Busca demandas por município via query e via search
+    const filterRes = await request(app)
+      .get('/api/invoices?municipality=Palmares')
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .expect(200);
+
+    expect(filterRes.body.data.some((inv: any) => inv.id === nfId)).toBe(true);
+
+    const searchRes = await request(app)
+      .get('/api/invoices?search=Palmares')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(searchRes.body.data.some((inv: any) => inv.id === nfId)).toBe(true);
+
+    // 8. Busca de OF por município
+    const ofMunRes = await request(app)
+      .get('/api/supply-orders?municipality=Palmares')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(ofMunRes.body.some((o: any) => o.id === ofId)).toBe(true);
   });
 });

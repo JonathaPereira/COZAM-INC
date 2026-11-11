@@ -15,7 +15,10 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  Trash2,
+  Pencil,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '../../lib/api.js';
 import type { InvoiceRow, Paginated, Supplier, Modality } from '@cozam/shared';
 import { formatBRL, formatDateBR, formatDateTimeBR } from '@cozam/shared';
@@ -24,9 +27,12 @@ import { Button } from '../../components/ui/Button.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.js';
 import { ModalityBadge } from '../../components/ui/Badges.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
+import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
+import { EditInvoiceModal } from '../../components/notas/EditInvoiceModal.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 
 export function PainelPagamentos() {
+  const { profile } = useAuth();
   const [search, setSearch] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [modality, setModality] = useState('');
@@ -35,6 +41,8 @@ export function PainelPagamentos() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<InvoiceRow | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceRow | null>(null);
 
   const { data: suppliers } = useQuery({
     queryKey: ['suppliers'],
@@ -72,6 +80,18 @@ export function PainelPagamentos() {
         }
       ),
   });
+
+  const handleDeleteInvoice = async (reason: string) => {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/invoices/${deleteTarget.id}`, { data: { reason } });
+      toast.success(`Nota Fiscal nº ${deleteTarget.invoice_number} excluída da fila de pagamentos com sucesso.`);
+      setDeleteTarget(null);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir NF.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -140,7 +160,7 @@ export function PainelPagamentos() {
       <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="sm:col-span-2 lg:col-span-2">
           <label className="block text-2xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
-            Pesquisar por NF, Processo ou Fornecedor
+            Pesquisar por NF, Processo, Fornecedor ou Município
           </label>
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -148,7 +168,7 @@ export function PainelPagamentos() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Digite o número da NF, processo..."
+              placeholder="Digite o número da NF, processo, fornecedor ou município..."
               className="w-full text-xs pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-emerald-600 focus:outline-none"
             />
           </div>
@@ -286,11 +306,33 @@ export function PainelPagamentos() {
                     </td>
 
                     <td className="py-3 px-4 text-right">
-                      <Link to={`/notas/${inv.id}`}>
-                        <Button variant="primary" size="sm">
-                          Pagar / Abrir
-                        </Button>
-                      </Link>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link to={`/notas/${inv.id}`}>
+                          <Button variant="primary" size="sm">
+                            Pagar / Abrir
+                          </Button>
+                        </Link>
+                        {profile?.role === 'admin' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                            icon={<Pencil className="w-3.5 h-3.5" />}
+                            onClick={() => setEditingInvoice(inv)}
+                            title="Editar dados da NF"
+                          />
+                        )}
+                        {profile?.role === 'admin' && (inv.total_paid === 0 || !inv.total_paid) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            icon={<Trash2 className="w-3.5 h-3.5" />}
+                            onClick={() => setDeleteTarget(inv)}
+                            title="Excluir NF da fila de pagamentos"
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -305,6 +347,23 @@ export function PainelPagamentos() {
           </table>
         </div>
       </Card>
+
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteInvoice}
+        title="Excluir Nota Fiscal da Fila de Pagamentos"
+        itemIdentifier={`NF nº ${deleteTarget?.invoice_number} · ${deleteTarget?.supplier_name}`}
+        description="Tem certeza que deseja excluir esta Nota Fiscal enviada para pagamento? Esta operação removerá a nota e os documentos associados da base e da fila de pagamentos. Todos os dados serão registrados na auditoria."
+        confirmButtonText="Sim, excluir NF"
+      />
+
+      <EditInvoiceModal
+        isOpen={Boolean(editingInvoice)}
+        onClose={() => setEditingInvoice(null)}
+        onSuccess={refetch}
+        invoice={editingInvoice}
+      />
     </div>
   );
 }

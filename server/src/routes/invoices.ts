@@ -24,7 +24,8 @@ const createInvoiceSchema = z.object({
 });
 
 const updateInvoiceSchema = z.object({
-  supply_order_id: z.string().uuid().optional(),
+  supply_order_id: z.string().uuid().optional().nullable(),
+  process_id: z.string().uuid().optional().nullable(),
   invoice_number: z.string().trim().min(1).optional(),
   issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   amount: z.coerce.number().positive().optional(),
@@ -159,7 +160,7 @@ invoicesRouter.get('/invoices', authenticate, async (req, res, next) => {
     if (search) {
       params.push(`%${search}%`);
       where.push(
-        `(i.invoice_number ilike $${params.length} or s.name ilike $${params.length} or ap.process_number ilike $${params.length})`
+        `(i.invoice_number ilike $${params.length} or s.name ilike $${params.length} or ap.process_number ilike $${params.length} or i.municipality ilike $${params.length})`
       );
     }
     if (supplierId) {
@@ -519,26 +520,29 @@ invoicesRouter.post('/invoices/:id/attend', authenticate, requirePermission('pay
   }
 });
 
-// Alteração de NF
-invoicesRouter.patch('/invoices/:id', authenticate, requirePermission('invoices.write'), async (req, res, next) => {
+// Alteração de NF (apenas Administrador)
+invoicesRouter.patch('/invoices/:id', authenticate, async (req, res, next) => {
   try {
+    // 1. Apenas o perfil administrador pode editar
+    if (req.user?.role !== 'admin') {
+      throw new AppError('Apenas o Administrador possui permissão para editar dados de Notas Fiscais.', {
+        code: 'ACESSO_NEGADO',
+        status: 403,
+      });
+    }
+
     const { id } = req.params;
     const data = updateInvoiceSchema.parse(req.body);
+    const reason = data.reason?.trim() || 'Edição de dados pelo Administrador';
 
     const result = await runInTransaction(
-      { actorId: req.user!.id, reason: data.reason || null, requestId: req.requestId },
+      { actorId: req.user!.id, reason, requestId: req.requestId },
       async (client) => {
         const cur = await client.query('select * from public.invoices where id = $1', [id]);
         if (cur.rowCount === 0) {
           throw new AppError('Nota Fiscal não encontrada.', { code: 'NAO_ENCONTRADO', status: 404 });
         }
-        const row = cur.rows[0];
-        if (row.forward_status !== 'RASCUNHO' && !data.reason) {
-          throw new AppError('Informe a justificativa da alteração para Notas Fiscais já encaminhadas.', {
-            code: 'JUSTIFICATIVA_OBRIGATORIA',
-            status: 422,
-          });
-        }
+        const oldData = cur.rows[0];
 
         const upd = await client.query(
           `update public.invoices
@@ -548,8 +552,9 @@ invoicesRouter.patch('/invoices/:id', authenticate, requirePermission('invoices.
                   amount = coalesce($4, amount),
                   modality = coalesce($5, modality),
                   municipality = coalesce($6, municipality),
-                  notes = coalesce($7, notes)
-            where id = $8
+                  notes = coalesce($7, notes),
+                  process_id = coalesce($8, process_id)
+            where id = $9
             returning *`,
           [
             data.supply_order_id ?? null,
@@ -559,9 +564,29 @@ invoicesRouter.patch('/invoices/:id', authenticate, requirePermission('invoices.
             data.modality ?? null,
             data.municipality ?? null,
             data.notes ?? null,
+            data.process_id ?? null,
             id,
           ]
         );
+
+        // Registra log formal de auditoria
+        await client.query(
+          `insert into public.audit_logs (
+            actor_id, actor_name, actor_role, action, entity_type, entity_id, invoice_id,
+            summary, reason, old_data, new_data
+          ) values ($1, $2, $3, 'NF_ALTERADA', 'invoices', $4, $4, $5, $6, $7, $8)`,
+          [
+            req.user!.id,
+            req.user!.full_name || 'Administrador',
+            req.user!.role,
+            id,
+            `Alteração de dados da Nota Fiscal nº ${upd.rows[0].invoice_number}`,
+            reason,
+            JSON.stringify(oldData),
+            JSON.stringify(upd.rows[0]),
+          ]
+        );
+
         return upd.rows[0];
       }
     );
@@ -963,11 +988,17 @@ invoicesRouter.delete('/invoices/:id', authenticate, async (req, res, next) => {
 
     const reason = typeof req.body?.reason === 'string' && req.body.reason.trim()
       ? req.body.reason.trim()
-      : 'Lançamento anexado incorretamente pelo operador.';
+      : 'Nota Fiscal excluída pelo Administrador.';
 
     await runInTransaction(
       { actorId: req.user.id, reason, requestId: req.requestId },
       async (client) => {
+        // Remove documentos vinculados aos pagamentos desta NF
+        await client.query(
+          `delete from public.documents
+            where payment_id in (select id from public.payments where invoice_id = $1)`,
+          [id]
+        );
         // Remove pagamentos não efetivados se houver
         await client.query('delete from public.payments where invoice_id = $1', [id]);
         // Remove histórico

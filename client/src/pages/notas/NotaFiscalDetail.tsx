@@ -20,6 +20,7 @@ import {
   MessageSquare,
   ShieldCheck,
   Trash2,
+  Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, getErrorMessage } from '../../lib/api.js';
@@ -38,6 +39,7 @@ import { ModalityBadge, ForwardBadge } from '../../components/ui/Badges.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { Modal, ConfirmDialog } from '../../components/ui/Modal.js';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
+import { EditInvoiceModal } from '../../components/notas/EditInvoiceModal.js';
 import { CurrencyInput } from '../../components/ui/CurrencyInput.js';
 import { Input, Textarea } from '../../components/ui/Input.js';
 import { FileDropzone } from '../../components/ui/FileDropzone.js';
@@ -56,6 +58,7 @@ export function NotaFiscalDetail() {
 
   // Modais de ação
   const [deleteNfOpen, setDeleteNfOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [payAmount, setPayAmount] = useState<number | null>(null);
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
@@ -369,7 +372,18 @@ export function NotaFiscalDetail() {
             </Button>
           )}
 
-          {profile?.role === 'admin' && invoice.total_paid === 0 && (
+          {profile?.role === 'admin' && (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Pencil className="w-4 h-4" />}
+              onClick={() => setEditModalOpen(true)}
+            >
+              Editar NF
+            </Button>
+          )}
+
+          {profile?.role === 'admin' && (invoice.total_paid === 0 || !invoice.total_paid) && (
             <Button
               variant="danger"
               size="sm"
@@ -1024,8 +1038,15 @@ export function NotaFiscalDetail() {
         onConfirm={handleDeleteInvoice}
         title="Excluir Nota Fiscal Definitivamente"
         itemIdentifier={`NF nº ${invoice.invoice_number} · ${invoice.supplier_name}`}
-        description="Tem certeza que deseja excluir esta Nota Fiscal anexada? Esta operação removerá a nota e os arquivos PDF anexados. Todos os dados serão registrados na auditoria para o setor de Pagamentos."
+        description="Tem certeza que deseja excluir esta Nota Fiscal? Esta operação removerá a nota e todos os documentos associados da base e da fila de pagamentos. Todos os dados serão registrados na auditoria."
         confirmButtonText="Sim, excluir Nota Fiscal"
+      />
+
+      <EditInvoiceModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onSuccess={refetch}
+        invoice={invoice}
       />
     </div>
   );

@@ -90,6 +90,7 @@ export interface SupplyOrderRow {
   document: DocumentRef | null;
   invoices_count: number;
   invoices_total: number;
+  municipalities?: string | null;
 }
 
 export interface InvoiceRow {
