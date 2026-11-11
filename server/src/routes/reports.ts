@@ -72,7 +72,7 @@ reportsRouter.get('/reports/:type', authenticate, requirePermission('reports.vie
       }
 
       const q = await pool.query(
-        `select i.invoice_number, i.issue_date, s.name as supplier_name,
+        `select i.invoice_number, i.issue_date, i.municipality, s.name as supplier_name,
                 i.modality, i.status, i.amount, i.total_paid,
                 case when i.amount is null then null else i.amount - i.total_paid end as balance,
                 ap.process_number, i.notes
@@ -98,6 +98,7 @@ reportsRouter.get('/reports/:type', authenticate, requirePermission('reports.vie
         }
         return {
           invoice_number: r.invoice_number,
+          municipality: r.municipality || '—',
           issue_date: r.issue_date,
           supplier_name: r.supplier_name,
           modality: r.modality || '—',
@@ -118,6 +119,7 @@ reportsRouter.get('/reports/:type', authenticate, requirePermission('reports.vie
         filters_applied: filtersApplied,
         columns: [
           { key: 'invoice_number', label: 'Nº da NF', type: 'text' },
+          { key: 'municipality', label: 'Município', type: 'text' },
           { key: 'supplier_name', label: 'Fornecedor', type: 'text' },
           { key: 'issue_date', label: 'Emissão', type: 'date' },
           { key: 'modality', label: 'Modalidade', type: 'text' },
@@ -156,7 +158,8 @@ reportsRouter.get('/reports/:type', authenticate, requirePermission('reports.vie
       }
 
       const q = await pool.query(
-        `select p.id, p.payment_date, p.amount, i.invoice_number, s.name as supplier_name,
+        `select p.id, p.payment_date, p.amount, p.gross_amount, p.tax_rate, p.tax_amount, p.net_amount, p.is_tax_exempt,
+                i.invoice_number, i.municipality, s.name as supplier_name,
                 i.modality, ap.process_number, cb.full_name as registered_by, p.notes
            from public.payments p
            join public.invoices i on i.id = p.invoice_id
@@ -169,16 +172,25 @@ reportsRouter.get('/reports/:type', authenticate, requirePermission('reports.vie
       );
 
       let totalPaid = 0;
+      let totalTax = 0;
+      let totalNet = 0;
       const rows = q.rows.map((r) => {
         const amt = Number(r.amount);
+        const tax = Number(r.tax_amount || 0);
+        const net = r.net_amount !== null && r.net_amount !== undefined ? Number(r.net_amount) : amt - tax;
         totalPaid += amt;
+        totalTax += tax;
+        totalNet += net;
         return {
           payment_date: r.payment_date,
           invoice_number: r.invoice_number,
+          municipality: r.municipality || '—',
           supplier_name: r.supplier_name,
           modality: r.modality || '—',
           process_number: r.process_number || '—',
           amount: amt,
+          tax_amount: tax,
+          net_amount: net,
           registered_by: r.registered_by || '—',
           notes: r.notes || '',
         };
@@ -193,15 +205,20 @@ reportsRouter.get('/reports/:type', authenticate, requirePermission('reports.vie
         columns: [
           { key: 'payment_date', label: 'Data do Pagamento', type: 'date' },
           { key: 'invoice_number', label: 'Nº da NF', type: 'text' },
+          { key: 'municipality', label: 'Município', type: 'text' },
           { key: 'supplier_name', label: 'Fornecedor', type: 'text' },
           { key: 'modality', label: 'Modalidade', type: 'text' },
           { key: 'process_number', label: 'Processo', type: 'text' },
-          { key: 'amount', label: 'Valor Pago', type: 'money' },
+          { key: 'amount', label: 'Valor Abatido (Bruto)', type: 'money' },
+          { key: 'tax_amount', label: 'Retenção IRRF (1,2%)', type: 'money' },
+          { key: 'net_amount', label: 'Líquido Pago', type: 'money' },
           { key: 'registered_by', label: 'Registrado por', type: 'text' },
         ],
         rows,
         totals: {
           amount: totalPaid,
+          tax_amount: totalTax,
+          net_amount: totalNet,
           count: rows.length,
         },
       };

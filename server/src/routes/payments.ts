@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { can } from '@cozam/shared';
+import { can, calculatePaymentTaxes } from '@cozam/shared';
 import { authenticate, requirePermission } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import { getPool } from '../db/pool.js';
@@ -15,6 +15,8 @@ const createPaymentSchema = z.object({
   payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data do pagamento inválida.'),
   notes: z.string().trim().optional().nullable(),
   client_request_id: z.string().uuid().optional(),
+  is_tax_exempt: z.coerce.boolean().optional().default(false),
+  tax_rate: z.coerce.number().optional().default(0.012),
 });
 
 const updatePaymentSchema = z.object({
@@ -107,6 +109,11 @@ paymentsRouter.get('/payments', authenticate, requirePermission('payments.view')
       data: listRes.rows.map((r) => ({
         ...r,
         amount: Number(r.amount),
+        gross_amount: r.gross_amount !== null && r.gross_amount !== undefined ? Number(r.gross_amount) : Number(r.amount),
+        tax_rate: r.tax_rate !== null && r.tax_rate !== undefined ? Number(r.tax_rate) : 0,
+        tax_amount: r.tax_amount !== null && r.tax_amount !== undefined ? Number(r.tax_amount) : 0,
+        net_amount: r.net_amount !== null && r.net_amount !== undefined ? Number(r.net_amount) : Number(r.amount),
+        is_tax_exempt: Boolean(r.is_tax_exempt),
       })),
       total,
       page,
@@ -164,17 +171,25 @@ paymentsRouter.post(
         }
       }
 
+      const taxes = calculatePaymentTaxes(data.amount, data.is_tax_exempt, data.tax_rate);
+
       const result = await runInTransaction(
         { actorId: req.user!.id, requestId: req.requestId },
         async (client) => {
           const insPay = await client.query(
             `insert into public.payments (
-               invoice_id, amount, payment_date, notes, client_request_id, created_by, status
-             ) values ($1, $2, $3, $4, $5, $6, 'VALIDO')
+               invoice_id, amount, gross_amount, tax_rate, tax_amount, net_amount, is_tax_exempt,
+               payment_date, notes, client_request_id, created_by, status
+             ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'VALIDO')
              returning *`,
             [
               invoiceId,
-              data.amount,
+              taxes.grossAmount,
+              taxes.grossAmount,
+              taxes.taxRate,
+              taxes.taxAmount,
+              taxes.netAmount,
+              taxes.isTaxExempt,
               data.payment_date,
               data.notes || null,
               data.client_request_id || null,

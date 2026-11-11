@@ -12,6 +12,7 @@ const createSupplierSchema = z.object({
   legal_name: z.string().trim().optional().nullable(),
   cnpj: z.string().trim().optional().nullable(),
   display_order: z.number().int().optional().default(100),
+  is_simples_nacional: z.boolean().optional().default(false),
 });
 
 const updateSupplierSchema = createSupplierSchema.partial().extend({
@@ -40,10 +41,10 @@ suppliersRouter.post('/suppliers', authenticate, requirePermission('suppliers.ma
       { actorId: req.user!.id, requestId: req.requestId },
       async (client) => {
         const ins = await client.query(
-          `insert into public.suppliers (name, legal_name, cnpj, display_order)
-           values ($1, $2, $3, $4)
+          `insert into public.suppliers (name, legal_name, cnpj, display_order, is_simples_nacional)
+           values ($1, $2, $3, $4, $5)
            returning *`,
-          [data.name, data.legal_name || null, data.cnpj || null, data.display_order]
+          [data.name, data.legal_name || null, data.cnpj || null, data.display_order, data.is_simples_nacional ?? false]
         );
         return ins.rows[0];
       }
@@ -73,8 +74,9 @@ suppliersRouter.patch('/suppliers/:id', authenticate, requirePermission('supplie
                   legal_name = coalesce($2, legal_name),
                   cnpj = coalesce($3, cnpj),
                   display_order = coalesce($4, display_order),
-                  active = coalesce($5, active)
-            where id = $6
+                  active = coalesce($5, active),
+                  is_simples_nacional = case when $6::boolean then $7::boolean else is_simples_nacional end
+            where id = $8
             returning *`,
           [
             data.name ?? null,
@@ -82,6 +84,8 @@ suppliersRouter.patch('/suppliers/:id', authenticate, requirePermission('supplie
             data.cnpj ?? null,
             data.display_order ?? null,
             data.active ?? null,
+            data.is_simples_nacional !== undefined,
+            data.is_simples_nacional ?? false,
             id,
           ]
         );

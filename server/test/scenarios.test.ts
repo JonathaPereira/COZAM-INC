@@ -973,4 +973,121 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
 
     expect(directSetRes.body.success).toBe(true);
   });
+
+  // ---------------------------------------------------------------------------
+  // Cenário N: Município na OF, fornecedor Simples Nacional e Retenção Tributária (IRRF 1,2%)
+  // ---------------------------------------------------------------------------
+  it('Cenário N: Suporte a Município na OF, fornecedor Simples Nacional e Retenção de 1,2% (IRRF)', async () => {
+    // 1. Cadastra Processo e Fornecedor optante pelo Simples Nacional
+    const proc = await request(app)
+      .post('/api/processes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ process_number: 'PROC-TRIBUTOS-2026', description: 'Processo com tributos e OF municipal' })
+      .expect(201);
+
+    const supSimples = await request(app)
+      .post('/api/suppliers')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Fornecedor Simples Ltda',
+        cnpj: '11.222.333/0001-44',
+        is_simples_nacional: true,
+      })
+      .expect(201);
+
+    expect(supSimples.body.is_simples_nacional).toBe(true);
+
+    const supNormal = await request(app)
+      .post('/api/suppliers')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Fornecedor Lucro Presumido SA',
+        cnpj: '99.888.777/0001-66',
+        is_simples_nacional: false,
+      })
+      .expect(201);
+
+    expect(supNormal.body.is_simples_nacional).toBe(false);
+
+    // 2. Cadastra OF informando o município consorciado com PDF anexado
+    const ofRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('process_id', proc.body.id)
+      .field('supplier_id', supNormal.body.id)
+      .field('of_number', 'OF-MUN-001/2026')
+      .field('issue_date', '2026-11-11')
+      .field('total_value', '50000.00')
+      .field('municipality', 'Branquinha')
+      .attach('file', Buffer.from('%PDF-1.4 OF'), 'OF-MUN-001.pdf')
+      .expect(201);
+
+    expect(ofRes.body.municipality).toBe('Branquinha');
+
+    // 3. Cadastra NF de R$ 50.000,00 e encaminha para Pagamentos
+    const nfRes = await request(app)
+      .post('/api/invoices')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('supply_order_id', ofRes.body.id)
+      .field('invoice_number', 'NF-TRIB-50000')
+      .field('issue_date', '2026-11-11')
+      .field('amount', '50000.00')
+      .field('modality', 'FUMIP')
+      .field('municipality', 'Branquinha')
+      .field('forward', 'true')
+      .attach('file', Buffer.from('%PDF-1.4 NF'), 'nf-trib.pdf')
+      .expect(201);
+
+    // 4. Primeiro pagamento PARCIAL: R$ 25.000,00 COM retenção de IRRF (1,2%)
+    // Alíquota 1,2% -> R$ 300,00 de imposto retido e R$ 24.700,00 líquido
+    const pay1 = await request(app)
+      .post(`/api/invoices/${nfRes.body.id}/payments`)
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .send({
+        amount: 25000.0,
+        payment_date: '2026-11-11',
+        is_tax_exempt: false,
+        tax_rate: 0.012,
+      })
+      .expect(201);
+
+    expect(Number(pay1.body.payment.amount)).toBe(25000);
+    expect(Number(pay1.body.payment.gross_amount)).toBe(25000);
+    expect(Number(pay1.body.payment.tax_rate)).toBe(0.012);
+    expect(Number(pay1.body.payment.tax_amount)).toBe(300);
+    expect(Number(pay1.body.payment.net_amount)).toBe(24700);
+    expect(pay1.body.payment.is_tax_exempt).toBe(false);
+    expect(Number(pay1.body.invoice.balance)).toBe(25000);
+
+    // 5. Segundo pagamento (quitação restante): R$ 25.000,00 COM isenção tributária (checkbox marcada)
+    // Alíquota 0% -> R$ 0,00 de imposto retido e R$ 25.000,00 líquido
+    const pay2 = await request(app)
+      .post(`/api/invoices/${nfRes.body.id}/payments`)
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .send({
+        amount: 25000.0,
+        payment_date: '2026-11-12',
+        is_tax_exempt: true,
+      })
+      .expect(201);
+
+    expect(Number(pay2.body.payment.amount)).toBe(25000);
+    expect(Number(pay2.body.payment.tax_amount)).toBe(0);
+    expect(Number(pay2.body.payment.net_amount)).toBe(25000);
+    expect(pay2.body.payment.is_tax_exempt).toBe(true);
+    expect(Number(pay2.body.invoice.balance)).toBe(0);
+    expect(pay2.body.invoice.status).toBe('TOTALMENTE_PAGA');
+
+    // 6. Relatório de pagamentos por período deve conter colunas de município e valores fiscais
+    const repRes = await request(app)
+      .get('/api/reports/pagamentos_periodo')
+      .set('Authorization', `Bearer ${pagamentosToken}`)
+      .expect(200);
+
+    const repRow = repRes.body.rows.find((r: any) => r.invoice_number === 'NF-TRIB-50000');
+    expect(repRow).toBeDefined();
+    expect(repRow.municipality).toBe('Branquinha');
+    expect(repRes.body.columns.some((c: any) => c.key === 'tax_amount')).toBe(true);
+    expect(repRes.body.columns.some((c: any) => c.key === 'net_amount')).toBe(true);
+  });
 });

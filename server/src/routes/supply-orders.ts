@@ -16,6 +16,7 @@ const createSupplyOrderSchema = z.object({
   issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de emissão inválida.'),
   total_value: z.coerce.number().min(0, 'Valor total não pode ser negativo.').optional().nullable(),
   notes: z.string().trim().optional().nullable(),
+  municipality: z.string().trim().optional().nullable(),
 });
 
 const updateSupplyOrderSchema = z.object({
@@ -25,6 +26,7 @@ const updateSupplyOrderSchema = z.object({
   issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   total_value: z.coerce.number().min(0).optional().nullable(),
   notes: z.string().trim().optional().nullable(),
+  municipality: z.string().trim().optional().nullable(),
   reason: z.string().trim().optional(),
 });
 
@@ -49,12 +51,12 @@ supplyOrdersRouter.get('/supply-orders', authenticate, requirePermission('proces
     }
     if (municipality) {
       params.push(`%${municipality}%`);
-      where.push(`exists (select 1 from public.invoices i where i.supply_order_id = so.id and i.municipality ilike $${params.length})`);
+      where.push(`(so.municipality ilike $${params.length} or exists (select 1 from public.invoices i where i.supply_order_id = so.id and i.municipality ilike $${params.length}))`);
     }
     if (search) {
       params.push(`%${search}%`);
       where.push(
-        `(so.of_number ilike $${params.length} or ap.process_number ilike $${params.length} or s.name ilike $${params.length} or exists (select 1 from public.invoices i where i.supply_order_id = so.id and i.municipality ilike $${params.length}))`
+        `(so.of_number ilike $${params.length} or ap.process_number ilike $${params.length} or s.name ilike $${params.length} or so.municipality ilike $${params.length} or exists (select 1 from public.invoices i where i.supply_order_id = so.id and i.municipality ilike $${params.length}))`
       );
     }
 
@@ -162,8 +164,8 @@ supplyOrdersRouter.post(
         { actorId: req.user!.id, requestId: req.requestId },
         async (client) => {
           const ins = await client.query(
-            `insert into public.supply_orders (process_id, supplier_id, of_number, issue_date, total_value, notes)
-             values ($1, $2, $3, $4, $5, $6)
+            `insert into public.supply_orders (process_id, supplier_id, of_number, issue_date, total_value, notes, municipality)
+             values ($1, $2, $3, $4, $5, $6, $7)
              returning *`,
             [
               data.process_id,
@@ -172,6 +174,7 @@ supplyOrdersRouter.post(
               data.issue_date,
               data.total_value ?? null,
               data.notes || null,
+              data.municipality || null,
             ]
           );
           const supplyOrder = ins.rows[0];
@@ -239,8 +242,9 @@ supplyOrdersRouter.patch(
                     of_number = coalesce($3, of_number),
                     issue_date = coalesce($4, issue_date),
                     total_value = case when $5::boolean then $6::numeric else total_value end,
-                    notes = coalesce($7, notes)
-              where id = $8
+                    notes = coalesce($7, notes),
+                    municipality = case when $8::boolean then $9::text else municipality end
+              where id = $10
               returning *`,
             [
               data.process_id ?? null,
@@ -250,6 +254,8 @@ supplyOrdersRouter.patch(
               data.total_value !== undefined,
               data.total_value ?? null,
               data.notes ?? null,
+              data.municipality !== undefined,
+              data.municipality ?? null,
               id,
             ]
           );
