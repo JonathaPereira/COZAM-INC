@@ -657,6 +657,12 @@ supplyOrdersRouter.delete('/supply-orders/:id', authenticate, async (req, res, n
         // Remove documentos vinculados à própria OF (PDF da OF)
         await client.query('delete from public.documents where supply_order_id = $1', [id]);
 
+        // Remove movimentações de saldo contratual vinculadas a esta OF (retorna o saldo para o estoque do contrato)
+        await client.query('delete from public.contract_item_movements where supply_order_id = $1', [id]);
+
+        // Remove itens da OF
+        await client.query('delete from public.supply_order_items where supply_order_id = $1', [id]);
+
         // Exclui a OF
         await client.query('delete from public.supply_orders where id = $1', [id]);
 

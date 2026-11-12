@@ -1566,4 +1566,87 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
       .expect(200);
     expect(xlsxSigned.headers['content-type']).toContain('spreadsheetml');
   });
+
+  it('Cenário T: Exclusão de Ordem de Fornecimento restaura o saldo do estoque do contrato imediatamente', async () => {
+    // 1. Cadastra contrato de teste (ex: PH Fausto)
+    const contractRes = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '014/2026',
+        year: 2026,
+        supplier_id: mzSupplierId,
+        object: 'FORNECIMENTO DE MATERIAIS DE CONSUMO E EXPEDIENTE',
+        signing_date: '2026-01-01',
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        delivery_deadline_days: 15,
+        total_amount: 1000.0,
+        status: 'ATIVO',
+        items: [
+          {
+            item_code: '01',
+            description: 'Papel A4 Reciclado 75g',
+            category: 'MATERIAL_CONSUMO',
+            unit: 'RESMA',
+            original_quantity: 40,
+            unit_price: 25.0,
+            total_price: 1000.0,
+          },
+        ],
+      })
+      .expect(201);
+
+    const contractId = contractRes.body.id;
+    const detail = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const itemId = detail.body.items[0].id;
+    expect(Number(detail.body.items[0].available_quantity)).toBe(40);
+
+    // 2. Emite OF esgotando todo o saldo (todas as 40 resmas) com confirm_and_sign=true
+    const ofRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_id: contractId,
+        supplier_id: mzSupplierId,
+        issue_date: '2026-06-10',
+        municipality: 'COZAM',
+        confirm_and_sign: true,
+        items: [{ contract_item_id: itemId, quantity: 40 }],
+      })
+      .expect(201);
+
+    const ofId = ofRes.body.id;
+
+    // 3. Saldo disponível deve ter ido a ZERO
+    const checkExhausted = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(Number(checkExhausted.body.items[0].available_quantity)).toBe(0);
+    expect(Number(checkExhausted.body.items[0].requested_quantity)).toBe(40);
+    expect(Number(checkExhausted.body.contract.remaining_amount)).toBe(0);
+
+    // 4. Exclui a Ordem de Fornecimento (como o usuário fez no teste)
+    const delRes = await request(app)
+      .delete(`/api/supply-orders/${ofId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reason: 'Exclusão de OF de teste para retornar saldo ao estoque' })
+      .expect(200);
+
+    expect(delRes.body.success).toBe(true);
+
+    // 5. Saldo DEVE ter retornado integralmente ao contrato (available_quantity = 40, requested_quantity = 0)
+    const checkRestored = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(Number(checkRestored.body.items[0].available_quantity)).toBe(40);
+    expect(Number(checkRestored.body.items[0].requested_quantity)).toBe(0);
+    expect(Number(checkRestored.body.items[0].reserved_quantity)).toBe(0);
+    expect(Number(checkRestored.body.contract.remaining_amount)).toBe(1000);
+  });
 });
