@@ -50,7 +50,7 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
       title: 'Principal',
       items: [
         { to: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" />, perm: 'dashboard.view' },
-        { to: '/lancamento', label: 'Novo Lançamento', icon: <FilePlus2 className="w-4 h-4" />, perm: 'invoices.write' },
+        { to: '/lancamento', label: 'Novo Lançamento / OF', icon: <FilePlus2 className="w-4 h-4" />, perm: 'supply_orders.write' },
       ],
     },
     {
@@ -58,7 +58,6 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
       items: [
         { to: '/contratos', label: 'Contratos & Licitações', icon: <ScrollText className="w-4 h-4" />, perm: 'contracts.view' },
         { to: '/ordens', label: 'Ordens de Fornecimento', icon: <FileText className="w-4 h-4" />, perm: 'processes.view' },
-        { to: '/ordens/nova', label: 'Emitir Nova OF', icon: <FilePlus2 className="w-4 h-4" />, perm: 'supply_orders.write' },
         { to: '/processos', label: 'Processos Adm.', icon: <FolderKanban className="w-4 h-4" />, perm: 'processes.view' },
         { to: '/notas', label: 'Notas Fiscais', icon: <Receipt className="w-4 h-4" />, perm: 'invoices.view_drafts' },
       ],

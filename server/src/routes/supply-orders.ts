@@ -260,7 +260,16 @@ supplyOrdersRouter.post(
         async (client) => {
           let processId = data.process_id;
           const contractId = data.contract_id;
-          const destinationId = data.destination_id;
+          let destinationId = data.destination_id;
+          if (!destinationId && data.municipality) {
+            const destRes = await client.query(
+              `select id from public.destinations where lower(name) = lower($1) or lower(city) = lower($1) limit 1`,
+              [data.municipality.trim()]
+            );
+            if (destRes.rowCount > 0) {
+              destinationId = destRes.rows[0].id;
+            }
+          }
           let ofNumber = data.of_number?.trim();
           let calculatedTotal = data.total_value ?? null;
           const shouldSignAndConfirm = Boolean(data.confirm_and_sign);
@@ -871,7 +880,7 @@ async function fetchSupplyOrderDocData(orderId: string): Promise<SupplyOrderDocD
 
   const totalAmount = items.reduce((acc: number, it: any) => acc + it.total_price, 0) || Number(row.total_value || 0);
 
-  const isSigned = row.status === 'CONFIRMADA' || Boolean(row.signed_at);
+  const isSigned = row.status !== 'CANCELADA';
   const deliveryAddress = row.destination_address
     ? `${row.destination_address}, ${row.destination_city || row.destination_name || ''}/AL`
     : (row.municipality && !row.municipality.toUpperCase().includes('COZAM')

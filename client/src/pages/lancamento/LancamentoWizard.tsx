@@ -440,10 +440,10 @@ export function LancamentoWizard() {
       {/* Cabeçalho */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
-          Novo Lançamento
+          Novo Lançamento & Ordem de Fornecimento
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Emissão de Ordem de Fornecimento com controle de saldo de produtos por Contrato / Ata e vinculação de Nota Fiscal
+          Emita Ordens de Fornecimento com controle de estoque e baixa de saldo de contratos em tempo real, com assinatura digital automática e vinculação de Nota Fiscal (imediata ou posterior).
         </p>
       </div>
 
@@ -766,6 +766,16 @@ export function LancamentoWizard() {
               />
             </div>
 
+            <div className="mt-4">
+              <Textarea
+                label="Observações / Instruções de Entrega (Opcional)"
+                value={ofNotes}
+                onChange={(e) => setOfNotes(e.target.value)}
+                placeholder="Ex: Entregar na sede do município / secretaria ou instrução específica..."
+                rows={2}
+              />
+            </div>
+
             {launchType === 'direct' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                 <Select
@@ -943,9 +953,9 @@ export function LancamentoWizard() {
                 disabled={!canGoToStep3()}
                 icon={<Clock className="w-4 h-4 text-emerald-600" />}
                 className="border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
-                title="Emite a OF imediatamente, debitando o saldo do contrato, permitindo anexar a NF quando a mercadoria chegar"
+                title="Emite a OF assinada imediatamente, debitando o saldo do contrato, permitindo anexar a NF quando a mercadoria chegar"
               >
-                Salvar e Emitir Ordem (sem NF por enquanto)
+                Emitir e Assinar Ordem (sem NF por enquanto)
               </Button>
 
               {/* Botão Primário: Avançar para anexar a NF imediatamente */}

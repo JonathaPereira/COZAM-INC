@@ -97,13 +97,8 @@ export function OrdensList() {
         {canWrite && (
           <div className="flex items-center gap-2">
             <Link to="/lancamento">
-              <Button variant="secondary" icon={<Plus className="w-4 h-4" />}>
-                Lançamento Rápido
-              </Button>
-            </Link>
-            <Link to="/ordens/nova">
-              <Button variant="primary" icon={<FileText className="w-4 h-4" />}>
-                Emitir Nova OF de Contrato
+              <Button variant="primary" icon={<Plus className="w-4 h-4" />}>
+                Nova Ordem de Fornecimento / Lançamento
               </Button>
             </Link>
           </div>

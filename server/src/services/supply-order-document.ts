@@ -347,6 +347,11 @@ export async function generateSupplyOrderWorkbook(data: SupplyOrderDocData): Pro
 
   // Linha de TOTAL GERAL
   ws.mergeCells(`A${curRow}:E${curRow}`);
+  const rTotLabel = ws.getCell(`A${curRow}`);
+  rTotLabel.value = 'TOTAL';
+  rTotLabel.font = { name: 'Calibri', size: 10, bold: true };
+  rTotLabel.alignment = { horizontal: 'right', vertical: 'middle' };
+
   const rTotF = ws.getCell(`F${curRow}`);
   rTotF.value = {
     formula: `SUM(F${startItemRow}:F${endItemRow})`,
@@ -378,8 +383,9 @@ export async function generateSupplyOrderWorkbook(data: SupplyOrderDocData): Pro
   ws.getRow(sigStartRow + 2).height = 27.75;
   applyBoxBorders(ws, sigStartRow, 1, sigEndRow, 6);
 
-  // Se confirmado/assinado, insere a assinatura do Jonatha no espaço apropriado
-  if (data.is_signed) {
+  // Insere a assinatura do Jonatha no espaço apropriado (padrão oficial de emissão)
+  const shouldDrawSignature = data.is_signed !== false;
+  if (shouldDrawSignature) {
     const sigBuffer = getJonathaSignatureBuffer();
     const sigImageId = wb.addImage({
       buffer: sigBuffer as any,
@@ -491,8 +497,9 @@ export async function generateSupplyOrderPdf(data: SupplyOrderDocData): Promise<
   const logoBytes = getCozamLogoBuffer();
   const pdfLogo = await pdfDoc.embedPng(logoBytes);
 
+  const shouldDrawSignature = data.is_signed !== false;
   let pdfSig: any = null;
-  if (data.is_signed) {
+  if (shouldDrawSignature) {
     const sigBytes = getJonathaSignatureBuffer();
     pdfSig = await pdfDoc.embedPng(sigBytes);
   }
@@ -806,7 +813,17 @@ export async function generateSupplyOrderPdf(data: SupplyOrderDocData): Promise<
   curY -= totRowH;
   const totLeftW = contentWidth - colW.total;
   drawBox(marginX, curY, totLeftW, totRowH);
-  // Merged A..E blank in template
+  // Desenhar "TOTAL" ao lado esquerdo da soma dos itens (alinhado à direita na coluna mesclada A..E)
+  const totalLabel = 'TOTAL';
+  const totalLabelW = fontBold.widthOfTextAtSize(totalLabel, 8.5);
+  page.drawText(totalLabel, {
+    x: marginX + totLeftW - totalLabelW - 8,
+    y: curY + (totRowH - 8.5) / 2 + 1,
+    size: 8.5,
+    font: fontBold,
+    color: black,
+  });
+
   drawBox(marginX + totLeftW, curY, colW.total, totRowH);
   const totAmountStr = formatCurrency(Number(data.total_amount)).replace('R$', '').trim();
   drawCenteredInBox(totAmountStr, marginX + totLeftW, curY, colW.total, totRowH, fontBold, 8);

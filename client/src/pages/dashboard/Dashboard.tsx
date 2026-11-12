@@ -289,7 +289,7 @@ export function Dashboard() {
                 Contratos de cabos, reatores, lâmpadas LED e materiais de iluminação para atendimento aos municípios consorciados.
               </p>
             </div>
-            <Link to="/ordens/nova">
+            <Link to="/lancamento">
               <Button variant="primary" size="sm" icon={<Zap className="w-3.5 h-3.5" />} className="bg-amber-600 hover:bg-amber-700 text-white shrink-0">
                 Emitir OF de Material Elétrico
               </Button>
@@ -380,7 +380,7 @@ export function Dashboard() {
                 Controle de suprimentos para uso e funcionamento do consórcio: Café, Água Mineral, Material de Expediente, Limpeza e EPIs.
               </p>
             </div>
-            <Link to="/ordens/nova">
+            <Link to="/lancamento">
               <Button variant="primary" size="sm" icon={<Plus className="w-3.5 h-3.5" />} className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0">
                 Emitir OF de Consumo Interno
               </Button>

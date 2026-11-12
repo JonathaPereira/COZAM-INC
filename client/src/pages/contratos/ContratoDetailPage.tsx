@@ -109,7 +109,7 @@ export function ContratoDetailPage() {
               </button>
             )}
             <button
-              onClick={() => navigate('/ordens/nova')}
+              onClick={() => navigate(`/lancamento?contract_id=${contract.id}`)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-xs"
             >
               <Plus className="w-4 h-4" />
