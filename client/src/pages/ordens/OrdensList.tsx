@@ -543,6 +543,21 @@ export function OrdemDetail() {
     }
   };
 
+  const [confirmingDigital, setConfirmingDigital] = useState(false);
+
+  const handleConfirmDigitalSign = async () => {
+    try {
+      setConfirmingDigital(true);
+      await api.post(`/supply-orders/${id}/confirm-sign`, {});
+      toast.success('Ordem de Fornecimento confirmada e assinada digitalmente com sucesso!');
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao assinar digitalmente a OF.');
+    } finally {
+      setConfirmingDigital(false);
+    }
+  };
+
   if (isLoading || !data) {
     return <div className="text-center py-12 text-xs text-slate-500">Carregando OF...</div>;
   }
@@ -687,21 +702,32 @@ export function OrdemDetail() {
           <div className="flex items-center gap-3">
             <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
             <div>
-              <p className="font-bold">Aguardando Coleta de Assinatura</p>
+              <p className="font-bold">Aguardando Confirmação e Assinatura</p>
               <p className="text-2xs text-amber-700 dark:text-amber-300 mt-0.5">
-                Faça o download do PDF oficial, colete as assinaturas do Supervisor e Fornecedor e anexe o documento digitalizado para confirmar a baixa no saldo do contrato.
+                Você pode confirmar e aplicar a assinatura digital do Supervisor de Compras (Jonatha Pereira de Jesus) com 1 clique, ou anexar a via física digitalizada.
               </p>
             </div>
           </div>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<UploadCloud className="w-3.5 h-3.5" />}
-            onClick={() => setSignedModalOpen(true)}
-            className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
-          >
-            Anexar Via Assinada Agora
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+              onClick={handleConfirmDigitalSign}
+              loading={confirmingDigital}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+            >
+              Assinar e Confirmar OF
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<UploadCloud className="w-3.5 h-3.5" />}
+              onClick={() => setSignedModalOpen(true)}
+            >
+              Anexar Via Externa
+            </Button>
+          </div>
         </div>
       )}
 

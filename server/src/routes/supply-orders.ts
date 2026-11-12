@@ -31,6 +31,9 @@ const createSupplyOrderSchema = z.object({
   total_value: z.coerce.number().min(0, 'Valor total não pode ser negativo.').optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   municipality: z.string().trim().optional().nullable(),
+  confirm_and_sign: z
+    .preprocess((val) => val === true || val === 'true' || val === 1 || val === '1', z.boolean())
+    .optional(),
   items: z
     .preprocess((val) => {
       if (typeof val === 'string') {
@@ -260,7 +263,12 @@ supplyOrdersRouter.post(
           const destinationId = data.destination_id;
           let ofNumber = data.of_number?.trim();
           let calculatedTotal = data.total_value ?? null;
-          const orderStatus = data.items && data.items.length > 0 ? 'AGUARDANDO_ASSINATURA' : 'CONFIRMADA';
+          const shouldSignAndConfirm = Boolean(data.confirm_and_sign);
+          const orderStatus = shouldSignAndConfirm
+            ? 'CONFIRMADA'
+            : (data.items && data.items.length > 0 ? 'AGUARDANDO_ASSINATURA' : 'CONFIRMADA');
+          const signedAt = shouldSignAndConfirm ? new Date().toISOString() : null;
+          const signedBy = shouldSignAndConfirm ? req.user!.id : null;
 
           if (contractId) {
             const cRes = await client.query('select procurement_id from public.contracts where id = $1', [contractId]);
@@ -325,8 +333,8 @@ supplyOrdersRouter.post(
 
           const ins = await client.query(
             `insert into public.supply_orders 
-             (process_id, contract_id, destination_id, supplier_id, of_number, issue_date, total_value, notes, municipality, status, tracking_code, created_by)
-             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             (process_id, contract_id, destination_id, supplier_id, of_number, issue_date, total_value, notes, municipality, status, tracking_code, created_by, signed_at, signed_by)
+             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
              returning *`,
             [
               processId,
@@ -341,6 +349,8 @@ supplyOrdersRouter.post(
               orderStatus,
               trackingCode,
               req.user!.id,
+              signedAt,
+              signedBy,
             ]
           );
           const supplyOrder = ins.rows[0];
@@ -363,6 +373,10 @@ supplyOrdersRouter.post(
               req.user!.id,
               data.issue_date
             );
+
+            if (shouldSignAndConfirm) {
+              await confirmContractItems(client, supplyOrder.id, req.user!.id);
+            }
           }
 
           if (file) {
@@ -796,11 +810,11 @@ async function fetchSupplyOrderDocData(orderId: string): Promise<SupplyOrderDocD
             s.neighborhood as supplier_neighborhood, s.city as supplier_city, s.state as supplier_state,
             s.zip_code as supplier_zip_code, s.phone as supplier_phone, s.email as supplier_email,
             ap.process_number,
-            c.contract_number, c.object as contract_object, c.legal_framework as contract_legal_framework,
+            c.contract_number, c.year as contract_year, c.object as contract_object, c.legal_framework as contract_legal_framework,
             c.signing_date as contract_signing_date, c.start_date as contract_start_date, c.end_date as contract_end_date,
             c.delivery_deadline_days as contract_delivery_deadline_days,
             pp.process_number as bidding_number, pp.modality as process_modality,
-            d.name as destination_name, d.city as destination_city,
+            d.name as destination_name, d.city as destination_city, d.address as destination_address,
             cb.full_name as created_by_name
        from public.supply_orders so
        join public.suppliers s on s.id = so.supplier_id
@@ -857,16 +871,26 @@ async function fetchSupplyOrderDocData(orderId: string): Promise<SupplyOrderDocD
 
   const totalAmount = items.reduce((acc: number, it: any) => acc + it.total_price, 0) || Number(row.total_value || 0);
 
+  const isSigned = row.status === 'CONFIRMADA' || Boolean(row.signed_at);
+  const deliveryAddress = row.destination_address
+    ? `${row.destination_address}, ${row.destination_city || row.destination_name || ''}/AL`
+    : (row.municipality && !row.municipality.toUpperCase().includes('COZAM')
+        ? `Sede do Município Consorciado de ${row.municipality}/AL`
+        : undefined);
+
   return {
     order_number: row.of_number || 'OF S/N',
     tracking_code: row.tracking_code || `COZAM-${row.id.slice(0, 8).toUpperCase()}`,
     created_at: row.issue_date || row.created_at,
     status: row.status || 'CONFIRMADA',
-    destination_name: row.destination_name || row.municipality || 'Santana do Mundaú',
+    destination_name: row.destination_name || row.municipality || 'COZAM',
     destination_entity: row.destination_city || row.destination_name || 'COZAM',
+    destination_city: row.destination_city,
+    delivery_address: deliveryAddress,
     contract_number: row.contract_number,
+    contract_year: row.contract_year || (row.contract_signing_date ? new Date(row.contract_signing_date).getFullYear() : undefined),
     contract_object: row.contract_object,
-    legal_framework: row.contract_legal_framework,
+    legal_framework: row.contract_legal_framework || 'Lei 14.133/2021',
     celebration_date: row.contract_signing_date ? new Date(row.contract_signing_date).toLocaleDateString('pt-BR') : undefined,
     validity_date: row.contract_end_date ? new Date(row.contract_end_date).toLocaleDateString('pt-BR') : undefined,
     delivery_deadline_days: row.contract_delivery_deadline_days || 15,
@@ -879,8 +903,10 @@ async function fetchSupplyOrderDocData(orderId: string): Promise<SupplyOrderDocD
     supplier_address: fullSupplierAddress,
     supplier_phone: row.supplier_phone,
     supplier_email: row.supplier_email,
-    issuer_name: row.created_by_name || 'JONATHA PEREIRA DE JESUS',
+    issuer_name: 'JONATHA PEREIRA DE JESUS',
     issuer_role: 'SUPERVISOR DE COMPRAS',
+    is_signed: isSigned,
+    signed_at: row.signed_at,
     items,
     total_amount: totalAmount,
   };
@@ -1001,6 +1027,64 @@ supplyOrdersRouter.post(
       res.status(200).json({
         success: true,
         message: 'Via assinada da Ordem de Fornecimento registrada e saldo baixado com sucesso.',
+        supply_order: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+supplyOrdersRouter.post(
+  '/supply-orders/:id/confirm-sign',
+  authenticate,
+  requirePermission('supply_orders.write'),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const pool = getPool();
+      const existing = await pool.query('select * from public.supply_orders where id = $1', [id]);
+      if (existing.rowCount === 0) {
+        throw new AppError('Ordem de Fornecimento não encontrada.', { code: 'NAO_ENCONTRADO', status: 404 });
+      }
+
+      const order = existing.rows[0];
+
+      const result = await runInTransaction(
+        { actorId: req.user!.id, reason: 'Assinatura digital e confirmação de baixa da OF pelo Supervisor de Compras' },
+        async (client) => {
+          if (order.contract_id) {
+            await confirmContractItems(client, id, req.user!.id);
+          }
+
+          await client.query(
+            `update public.supply_orders 
+                set status = 'CONFIRMADA', signed_at = coalesce(signed_at, now()), signed_by = coalesce(signed_by, $1), updated_at = now()
+              where id = $2`,
+            [req.user!.id, id]
+          );
+
+          await client.query(
+            `insert into public.audit_logs (
+              actor_id, actor_name, actor_role, action, entity_type, entity_id, summary
+            ) values ($1, $2, $3, 'OF_ASSINADA_CONFIRMADA', 'supply_orders', $4, $5)`,
+            [
+              req.user!.id,
+              req.user!.full_name || 'Jonatha Pereira de Jesus',
+              req.user!.role,
+              id,
+              `Ordem de Fornecimento nº ${order.of_number} confirmada e assinada digitalmente pelo Supervisor de Compras.`,
+            ]
+          );
+
+          const updated = await client.query('select * from public.supply_orders where id = $1', [id]);
+          return updated.rows[0];
+        }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Ordem de Fornecimento assinada digitalmente e confirmada com sucesso.',
         supply_order: result,
       });
     } catch (err) {

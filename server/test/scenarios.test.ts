@@ -1452,4 +1452,118 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     expect(data.items[0].total_price).toBe(2500);
     expect(data.items[0].has_divergence).toBe(false);
   });
+
+  // ---------------------------------------------------------------------------
+  // Cenário S: Emissão de OF com confirmação e assinatura digital automática
+  // do Supervisor (Jonatha Pereira de Jesus) e via endpoint 1-clique
+  // ---------------------------------------------------------------------------
+  it('Cenário S: Emissão de OF com confirm_and_sign=true e via POST /confirm-sign', async () => {
+    // 1. Cadastra contrato de teste
+    const contractRes = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '099/2026',
+        year: 2026,
+        supplier_id: mzSupplierId,
+        object: 'FORNECIMENTO DE ÁGUA MINERAL E BEBIDAS',
+        signing_date: '2026-01-01',
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        delivery_deadline_days: 15,
+        total_amount: 500.0,
+        status: 'ATIVO',
+        items: [
+          {
+            item_code: '01',
+            description: 'Garrafão de Água Mineral 20L',
+            category: 'AGUA_CAFE',
+            unit: 'UNID',
+            original_quantity: 50,
+            unit_price: 10.0,
+            total_price: 500.0,
+          },
+        ],
+      })
+      .expect(201);
+
+    const contractId = contractRes.body.id;
+    const detail = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const itemId = detail.body.items[0].id;
+
+    // 2. Emite OF com confirm_and_sign = true (assinatura automática na emissão)
+    const ofAutoRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_id: contractId,
+        supplier_id: mzSupplierId,
+        issue_date: '2026-06-01',
+        municipality: 'COZAM',
+        confirm_and_sign: true,
+        items: [{ contract_item_id: itemId, quantity: 10 }],
+      })
+      .expect(201);
+
+    expect(ofAutoRes.body.status).toBe('CONFIRMADA');
+    expect(ofAutoRes.body.signed_at).toBeDefined();
+
+    // 3. Saldo disponível deve ter caído de 50 para 40 imediatamente
+    const check1 = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(check1.body.items[0].available_quantity).toBe(40);
+    expect(check1.body.items[0].delivered_quantity).toBe(10);
+
+    // 4. Emite outra OF sem confirm_and_sign (vai para AGUARDANDO_ASSINATURA)
+    const ofDraftRes = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_id: contractId,
+        supplier_id: mzSupplierId,
+        issue_date: '2026-06-02',
+        municipality: 'COZAM',
+        items: [{ contract_item_id: itemId, quantity: 15 }],
+      })
+      .expect(201);
+
+    expect(ofDraftRes.body.status).toBe('AGUARDANDO_ASSINATURA');
+    const draftId = ofDraftRes.body.id;
+
+    // 5. Confirma e assina digitalmente com 1 clique
+    const signRes = await request(app)
+      .post(`/api/supply-orders/${draftId}/confirm-sign`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(signRes.body.success).toBe(true);
+    expect(signRes.body.supply_order.status).toBe('CONFIRMADA');
+    expect(signRes.body.supply_order.signed_at).toBeDefined();
+
+    // 6. Confere que a baixa de mais 15 ocorreu e saldo disponível é 25
+    const check2 = await request(app)
+      .get(`/api/contracts/${contractId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(check2.body.items[0].available_quantity).toBe(25);
+    expect(check2.body.items[0].delivered_quantity).toBe(25);
+
+    // 7. Download do PDF e XLSX agora já trazem o status assinado e a assinatura embutida
+    const pdfSigned = await request(app)
+      .get(`/api/supply-orders/${draftId}/pdf`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(pdfSigned.headers['content-type']).toContain('application/pdf');
+
+    const xlsxSigned = await request(app)
+      .get(`/api/supply-orders/${draftId}/xlsx`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(xlsxSigned.headers['content-type']).toContain('spreadsheetml');
+  });
 });

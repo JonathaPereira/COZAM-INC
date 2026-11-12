@@ -116,6 +116,7 @@ export function LancamentoWizard() {
   // Mapa de quantidades solicitadas: contract_item_id -> quantidade
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
   const [savingOfOnly, setSavingOfOnly] = useState(false);
+  const [autoSignOf, setAutoSignOf] = useState(true);
 
   // Modo OF existente quando despesa direta
   const [ofMode, setOfMode] = useState<'existing' | 'new'>('new');
@@ -273,6 +274,7 @@ export function LancamentoWizard() {
       formData.append('issue_date', ofDate);
       formData.append('municipality', ofMunicipality || 'Santana do Mundaú');
       if (ofNotes.trim()) formData.append('notes', ofNotes.trim());
+      if (autoSignOf) formData.append('confirm_and_sign', 'true');
 
       if (launchType === 'contract') {
         const itemsPayload = requestedItemsList.map((it) => ({
@@ -332,6 +334,7 @@ export function LancamentoWizard() {
         ofFormData.append('issue_date', ofDate);
         ofFormData.append('municipality', ofMunicipality || municipality || 'Santana do Mundaú');
         if (ofNotes.trim()) ofFormData.append('notes', ofNotes.trim());
+        if (autoSignOf) ofFormData.append('confirm_and_sign', 'true');
 
         if (launchType === 'contract') {
           const itemsPayload = requestedItemsList.map((it) => ({
@@ -900,6 +903,26 @@ export function LancamentoWizard() {
               selectedFile={ofFile}
             />
           </Card>
+
+          {/* Opção de Assinatura Digital Automática do Supervisor */}
+          <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 flex items-center justify-between gap-3">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoSignOf}
+                onChange={(e) => setAutoSignOf(e.target.checked)}
+                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+              />
+              <div>
+                <p className="text-xs font-bold text-emerald-950 dark:text-emerald-200">
+                  Assinar e confirmar digitalmente como Supervisor de Compras (Jonatha Pereira de Jesus)
+                </p>
+                <p className="text-2xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                  A OF já sairá assinada automaticamente com a sua assinatura oficial nos downloads de PDF e Excel, com baixa automática de saldo.
+                </p>
+              </div>
+            </label>
+          </div>
 
           {/* AÇÕES DA ETAPA 2: FLUXO DE 2 TEMPOS */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
