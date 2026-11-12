@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   Clock,
   Layers,
+  Receipt,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api.js';
@@ -24,7 +26,10 @@ import type { SupplyOrderRow } from '@cozam/shared';
 import { formatBRL, formatDateBR, formatDateTimeBR } from '@cozam/shared';
 import { Card } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
-import { Textarea } from '../../components/ui/Input.js';
+import { Input, Select, Textarea } from '../../components/ui/Input.js';
+import { CurrencyInput } from '../../components/ui/CurrencyInput.js';
+import { MunicipalitySelect } from '../../components/ui/MunicipalitySelect.js';
+import { Modal } from '../../components/ui/Modal.js';
 import { FileDropzone } from '../../components/ui/FileDropzone.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
@@ -267,6 +272,215 @@ export function OrdensList() {
   );
 }
 
+interface AnexarNotaModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  supplyOrder: any;
+  defaultAmount?: number | null;
+  onSuccess: () => void;
+}
+
+function AnexarNotaModal({
+  isOpen,
+  onClose,
+  supplyOrder,
+  defaultAmount,
+  onSuccess,
+}: AnexarNotaModalProps) {
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [amount, setAmount] = useState<number | null>(defaultAmount || null);
+  const [modality, setModality] = useState<'COMPRA_COMPARTILHADA' | 'FUMIP'>('COMPRA_COMPARTILHADA');
+  const [municipality, setMunicipality] = useState(
+    supplyOrder?.municipality || 'Santana do Mundaú'
+  );
+  const [notes, setNotes] = useState('');
+  const [forward, setForward] = useState(true);
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!invoiceNumber.trim() || !supplyOrder?.supplier_id) {
+      setDuplicateWarning(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get<{ exists: boolean; invoice?: any }>(
+          '/invoices/check-duplicate',
+          {
+            supplier_id: supplyOrder.supplier_id,
+            invoice_number: invoiceNumber.trim(),
+          }
+        );
+        if (res.exists) {
+          setDuplicateWarning(
+            `Atenção: Já existe uma NF nº ${invoiceNumber} para este fornecedor no sistema.`
+          );
+        } else {
+          setDuplicateWarning(null);
+        }
+      } catch {
+        // ignore
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [invoiceNumber, supplyOrder?.supplier_id]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!invoiceNumber.trim()) {
+      toast.error('Informe o número da Nota Fiscal.');
+      return;
+    }
+    if (!issueDate) {
+      toast.error('Informe a data de emissão.');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      toast.error('Informe o valor da Nota Fiscal.');
+      return;
+    }
+    if (!file) {
+      toast.error('Anexe o arquivo PDF da Nota Fiscal.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append('supply_order_id', supplyOrder.id);
+      formData.append('invoice_number', invoiceNumber.trim());
+      formData.append('issue_date', issueDate);
+      formData.append('amount', String(amount));
+      formData.append('modality', modality);
+      if (municipality) formData.append('municipality', municipality);
+      if (notes.trim()) formData.append('notes', notes.trim());
+      formData.append('forward', String(forward));
+      formData.append('file', file);
+
+      await api.postMultipart('/invoices', formData);
+      toast.success(
+        `Nota Fiscal nº ${invoiceNumber} anexada com sucesso à OF nº ${supplyOrder.of_number}!`
+      );
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao anexar Nota Fiscal.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Anexar Nota Fiscal à Ordem de Fornecimento"
+      subtitle={`OF nº ${supplyOrder?.of_number} · Fornecedor: ${supplyOrder?.supplier_name}`}
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {duplicateWarning && (
+          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+            {duplicateWarning}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label="Número da Nota Fiscal"
+            value={invoiceNumber}
+            onChange={(e) => setInvoiceNumber(e.target.value)}
+            placeholder="Ex: 001.234"
+            required
+            autoFocus
+          />
+          <Input
+            label="Data de Emissão da NF"
+            type="date"
+            value={issueDate}
+            onChange={(e) => setIssueDate(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <CurrencyInput
+            label="Valor da Nota Fiscal (R$)"
+            value={amount}
+            onChange={setAmount}
+            required
+          />
+          <Select
+            label="Modalidade"
+            value={modality}
+            onChange={(e) => setModality(e.target.value as any)}
+            required
+          >
+            <option value="COMPRA_COMPARTILHADA">Compra Compartilhada (Padrão)</option>
+            <option value="FUMIP">FUMIP (Exclusivo Santana do Mundaú)</option>
+          </Select>
+        </div>
+
+        <MunicipalitySelect
+          value={municipality}
+          onChange={setMunicipality}
+          required
+        />
+
+        <FileDropzone
+          label="Arquivo da Nota Fiscal (PDF)"
+          onFileSelect={setFile}
+          selectedFile={file}
+          required
+        />
+
+        <Textarea
+          label="Observações (opcional)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Ex: Entrega de materiais conforme empenho..."
+          rows={2}
+        />
+
+        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={forward}
+              onChange={(e) => setForward(e.target.checked)}
+              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+            />
+            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+              Encaminhar diretamente para o setor de Pagamentos
+            </span>
+          </label>
+          <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1 ml-7">
+            Se marcado, a NF já aparecerá na fila do setor de Pagamentos para conferência e liquidação.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <Button variant="ghost" onClick={onClose} disabled={saving} type="button">
+            Cancelar
+          </Button>
+          <Button
+            variant="primary"
+            type="submit"
+            loading={saving}
+            disabled={!invoiceNumber.trim() || !amount || !file}
+            icon={<Receipt className="w-4 h-4" />}
+          >
+            Salvar e Anexar Nota Fiscal
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export function OrdemDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -275,6 +489,7 @@ export function OrdemDetail() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [signedModalOpen, setSignedModalOpen] = useState(false);
+  const [attachInvoiceOpen, setAttachInvoiceOpen] = useState(false);
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
   const [replaceReason, setReplaceReason] = useState('');
   const [replacing, setReplacing] = useState(false);
@@ -443,11 +658,26 @@ export function OrdemDetail() {
             </>
           )}
 
-          <Link to="/lancamento">
-            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}>
-              Nova NF para esta OF
+          {invoices.length === 0 ? (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Receipt className="w-4 h-4" />}
+              onClick={() => setAttachInvoiceOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 font-bold shadow-xs"
+            >
+              Anexar Nota Fiscal
             </Button>
-          </Link>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus className="w-4 h-4" />}
+              onClick={() => setAttachInvoiceOpen(true)}
+            >
+              Adicionar Outra Nota Fiscal
+            </Button>
+          )}
         </div>
       </div>
 
@@ -471,6 +701,36 @@ export function OrdemDetail() {
             className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
           >
             Anexar Via Assinada Agora
+          </Button>
+        </div>
+      )}
+
+      {/* Alerta de OF emitida aguardando entrega e NF */}
+      {invoices.length === 0 && (
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 shrink-0">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                Ordem emitida — Aguardando recebimento e Nota Fiscal
+              </h4>
+              <p className="text-xs text-amber-700 dark:text-amber-300/90 mt-0.5">
+                {items && items.length > 0
+                  ? 'Os produtos desta OF já foram reservados e debitados do saldo do contrato. Assim que a mercadoria e a NF chegarem, anexe a NF para dar seguimento ao pagamento.'
+                  : 'Esta OF foi gerada sem Nota Fiscal vinculada. Anexe a NF assim que emitida para encaminhamento ao setor de pagamentos.'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Receipt className="w-4 h-4" />}
+            onClick={() => setAttachInvoiceOpen(true)}
+            className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-bold"
+          >
+            Anexar Nota Fiscal Agora
           </Button>
         </div>
       )}
@@ -678,6 +938,14 @@ export function OrdemDetail() {
         onClose={() => setSignedModalOpen(false)}
         supplyOrderId={id || supply_order.id}
         ofNumber={supply_order.of_number}
+      />
+
+      <AnexarNotaModal
+        isOpen={attachInvoiceOpen}
+        onClose={() => setAttachInvoiceOpen(false)}
+        supplyOrder={supply_order}
+        defaultAmount={supply_order.total_value}
+        onSuccess={refetch}
       />
     </div>
   );
