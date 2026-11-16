@@ -103,7 +103,8 @@ export function QuickSupplierEmailModal({
             <span className="font-semibold">Fornecedor:</span> {target.supplierName}
           </p>
           <p className="text-slate-500">
-            O e-mail ficará salvo no cadastro do fornecedor. Ao confirmar, o Gmail abrirá com o assunto e o corpo pré-preenchidos para você anexar os arquivos e completar os detalhes da entrega.
+            O e-mail ficará salvo no cadastro do fornecedor. Ao confirmar, o Gmail abrirá na conta{' '}
+            <strong>comprascozam@gmail.com</strong> com o texto institucional pré-preenchido para você anexar os arquivos e enviar.
           </p>
         </div>
 
