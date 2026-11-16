@@ -33,9 +33,24 @@ export function FileDropzone({
       setInternalError(`O arquivo ultrapassa o limite de ${(maxSizeBytes / (1024 * 1024)).toFixed(0)} MB.`);
       return;
     }
-    if (accept && accept.includes('application/pdf') && !file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
-      setInternalError('Por favor, selecione um arquivo em formato PDF.');
-      return;
+    if (accept) {
+      const allowedTokens = accept.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
+      const ext = `.${file.name.split('.').pop()?.toLowerCase() || ''}`;
+      const mime = file.type.toLowerCase();
+      const matches = allowedTokens.some((tok) => {
+        if (tok === '*/*') return true;
+        if (tok.startsWith('.')) return ext === tok;
+        if (tok.endsWith('/*')) return mime.startsWith(tok.slice(0, -1));
+        return mime === tok || (tok === 'application/pdf' && ext === '.pdf');
+      });
+      if (!matches) {
+        setInternalError(
+          allowedTokens.length === 1 && allowedTokens[0] === 'application/pdf'
+            ? 'Por favor, selecione um arquivo em formato PDF.'
+            : 'Formato de arquivo não permitido. Selecione PDF, PNG ou JPG.'
+        );
+        return;
+      }
     }
     onFileSelect(file);
   };

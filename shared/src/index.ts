@@ -42,7 +42,7 @@ export type ProcessStatus = (typeof PROCESS_STATUSES)[number];
 export const PAYMENT_STATUSES = ['VALIDO', 'CANCELADO'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-export const DOCUMENT_KINDS = ['OF', 'NF', 'COMPROVANTE'] as const;
+export const DOCUMENT_KINDS = ['OF', 'EMPENHO', 'NF', 'COMPROVANTE'] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
 export const HISTORICAL_REPORT_STATUSES = ['SEM_INFORMACAO', 'PENDENTE', 'PARCIALMENTE_PAGA', 'PAGA'] as const;
@@ -98,6 +98,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
 
 export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   OF: 'Ordem de Fornecimento',
+  EMPENHO: 'Nota de Empenho',
   NF: 'Nota Fiscal',
   COMPROVANTE: 'Comprovante de pagamento',
 };
@@ -360,6 +361,7 @@ export const REPORT_LABELS: Record<ReportType, string> = {
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const DOCUMENT_MIME_TYPES: Record<DocumentKind, string[]> = {
   OF: ['application/pdf'],
+  EMPENHO: ['application/pdf', 'image/jpeg', 'image/png'],
   NF: ['application/pdf'],
   COMPROVANTE: ['application/pdf', 'image/jpeg', 'image/png'],
 };

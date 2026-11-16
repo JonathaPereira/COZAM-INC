@@ -2005,4 +2005,106 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
       .expect(200);
     expect(clearedSup.body.email).toBeNull();
   });
+
+  it('Cenário V: Anexo e versionamento de Nota de Empenho nas OFs (Material Elétrico e Uso do COZAM)', async () => {
+    const samplePdfDoc = await PDFDocument.create();
+    samplePdfDoc.addPage([200, 200]);
+    const pdfBytes = Buffer.from(await samplePdfDoc.save());
+
+    // 1. Cria OF de Material Elétrico já com Nota de Empenho anexada na emissão
+    const procRes = await request(app)
+      .post('/api/processes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        process_number: '991/2026',
+        year: 2026,
+        description: 'Aquisição de Material Elétrico para Iluminação Pública',
+      })
+      .expect(201);
+
+    const ofEletrico = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('process_id', procRes.body.id)
+      .field('supplier_id', nacSupplierId)
+      .field('of_number', 'OF 991/2026')
+      .field('issue_date', '2026-11-16')
+      .field('total_value', '1500.00')
+      .field('empenho_number', '2026NE00991')
+      .attach('file', pdfBytes, { filename: 'of-991.pdf', contentType: 'application/pdf' })
+      .attach('empenho_file', pdfBytes, { filename: 'empenho-991.pdf', contentType: 'application/pdf' })
+      .expect(201);
+
+    expect(ofEletrico.body.empenho_number).toBe('2026NE00991');
+
+    // Confere na listagem e no detalhe que OF e EMPENHO convivem sem conflito
+    const listRes = await request(app).get('/api/supply-orders').set('Authorization', `Bearer ${adminToken}`).expect(200);
+    const eletricoRow = listRes.body.find((o: any) => o.id === ofEletrico.body.id);
+    expect(eletricoRow.empenho_number).toBe('2026NE00991');
+    expect(eletricoRow.document?.kind).toBe('OF');
+    expect(eletricoRow.empenho_document?.kind).toBe('EMPENHO');
+    expect(eletricoRow.empenho_document?.file_name).toBe('empenho-991.pdf');
+
+    const detailEletrico = await request(app)
+      .get(`/api/supply-orders/${ofEletrico.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(detailEletrico.body.supply_order.empenho_document?.kind).toBe('EMPENHO');
+    expect(detailEletrico.body.documents.some((d: any) => d.kind === 'OF' && d.is_current)).toBe(true);
+    expect(detailEletrico.body.documents.some((d: any) => d.kind === 'EMPENHO' && d.is_current)).toBe(true);
+
+    // 2. Cria OF de Materiais de Uso do COZAM sem empenho e anexa/substitui via POST /supply-orders/:id/empenho
+    const ofCozam = await request(app)
+      .post('/api/supply-orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        process_id: procRes.body.id,
+        supplier_id: mzSupplierId,
+        of_number: 'OF 992/2026',
+        issue_date: '2026-11-16',
+        total_value: 450,
+      })
+      .expect(201);
+
+    const pngBytes = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    const attachRes1 = await request(app)
+      .post(`/api/supply-orders/${ofCozam.body.id}/empenho`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('empenho_number', '2026NE00992-A')
+      .attach('file', pngBytes, { filename: 'empenho-cozam-v1.png', contentType: 'image/png' })
+      .expect(201);
+    expect(attachRes1.body.success).toBe(true);
+    expect(attachRes1.body.document.kind).toBe('EMPENHO');
+    expect(attachRes1.body.document.version).toBe(1);
+    expect(attachRes1.body.empenho_number).toBe('2026NE00992-A');
+
+    // Substitui o empenho por PDF atualizado e confirma versionamento (v2)
+    const attachRes2 = await request(app)
+      .post(`/api/supply-orders/${ofCozam.body.id}/empenho`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('empenho_number', '2026NE00992-B')
+      .field('reason', 'Reforço de empenho')
+      .attach('file', pdfBytes, { filename: 'empenho-cozam-v2.pdf', contentType: 'application/pdf' })
+      .expect(201);
+    expect(attachRes2.body.document.kind).toBe('EMPENHO');
+    expect(attachRes2.body.document.version).toBe(2);
+    expect(attachRes2.body.empenho_number).toBe('2026NE00992-B');
+
+    const cozamDetail = await request(app)
+      .get(`/api/supply-orders/${ofCozam.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const empenhoDocs = cozamDetail.body.documents.filter((d: any) => d.kind === 'EMPENHO');
+    expect(empenhoDocs).toHaveLength(2);
+    expect(empenhoDocs.find((d: any) => d.is_current)?.version).toBe(2);
+
+    // Download direto do arquivo de empenho funciona
+    await request(app)
+      .get(`/api/documents/${attachRes2.body.document.id}/content`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+  });
 });

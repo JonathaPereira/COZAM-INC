@@ -295,7 +295,7 @@ invoicesRouter.get('/invoices/:id', authenticate, async (req, res, next) => {
          from public.documents d
          left join public.profiles ub on ub.id = d.uploaded_by
         where d.invoice_id = $1
-           or (d.supply_order_id = $2 and d.kind = 'OF')
+           or (d.supply_order_id = $2 and d.kind in ('OF', 'EMPENHO'))
            or d.payment_id in (select p.id from public.payments p where p.invoice_id = $1)
         order by d.kind asc, d.version desc`,
       [id, invoice.supply_order_id]

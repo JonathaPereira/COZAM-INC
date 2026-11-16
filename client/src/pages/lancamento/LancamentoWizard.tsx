@@ -112,6 +112,8 @@ export function LancamentoWizard() {
   const [ofMunicipality, setOfMunicipality] = useState('Santana do Mundaú');
   const [ofNotes, setOfNotes] = useState('');
   const [ofFile, setOfFile] = useState<File | null>(null);
+  const [empenhoNumber, setEmpenhoNumber] = useState('');
+  const [empenhoFile, setEmpenhoFile] = useState<File | null>(null);
 
   // Mapa de quantidades solicitadas: contract_item_id -> quantidade
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
@@ -291,6 +293,12 @@ export function LancamentoWizard() {
       if (ofFile) {
         formData.append('file', ofFile);
       }
+      if (empenhoNumber.trim()) {
+        formData.append('empenho_number', empenhoNumber.trim());
+      }
+      if (empenhoFile) {
+        formData.append('empenho_file', empenhoFile);
+      }
 
       const res = await api.postMultipart<any>('/supply-orders', formData);
       toast.success(
@@ -350,6 +358,12 @@ export function LancamentoWizard() {
 
         if (ofFile) {
           ofFormData.append('file', ofFile);
+        }
+        if (empenhoNumber.trim()) {
+          ofFormData.append('empenho_number', empenhoNumber.trim());
+        }
+        if (empenhoFile) {
+          ofFormData.append('empenho_file', empenhoFile);
         }
 
         const ofRes = await api.postMultipart<SupplyOrderRow>('/supply-orders', ofFormData);
@@ -912,6 +926,28 @@ export function LancamentoWizard() {
               onFileSelect={setOfFile}
               selectedFile={ofFile}
             />
+          </Card>
+
+          {/* Upload da Nota de Empenho da Ordem (Opcional) */}
+          <Card
+            title="Nota de Empenho da Ordem (Opcional)"
+            subtitle="Você pode anexar o empenho agora ou depois diretamente na tela da Ordem de Fornecimento"
+          >
+            <div className="space-y-4">
+              <Input
+                label="Número do Empenho (opcional)"
+                value={empenhoNumber}
+                onChange={(e) => setEmpenhoNumber(e.target.value)}
+                placeholder="Ex: 2026NE00145"
+              />
+              <FileDropzone
+                label="Arquivo do Empenho (PDF ou Imagem PNG/JPG)"
+                accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+                helperText="Aceita PDF ou imagem (PNG/JPG) até 20 MB"
+                onFileSelect={setEmpenhoFile}
+                selectedFile={empenhoFile}
+              />
+            </div>
           </Card>
 
           {/* Opção de Assinatura Digital Automática do Supervisor */}

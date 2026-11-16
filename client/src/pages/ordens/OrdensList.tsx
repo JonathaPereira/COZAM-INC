@@ -20,6 +20,7 @@ import {
   Receipt,
   AlertCircle,
   Mail,
+  FileCheck2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api.js';
@@ -36,6 +37,7 @@ import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
 import { EditSupplyOrderModal } from '../../components/ordens/EditSupplyOrderModal.js';
 import { UploadSignedOfModal } from '../../components/orders/UploadSignedOfModal.js';
+import { UploadEmpenhoModal } from '../../components/orders/UploadEmpenhoModal.js';
 import {
   QuickSupplierEmailModal,
   type QuickSupplierEmailTarget,
@@ -50,6 +52,7 @@ export function OrdensList() {
   const [deleteTarget, setDeleteTarget] = useState<SupplyOrderRow | null>(null);
   const [editingOf, setEditingOf] = useState<SupplyOrderRow | null>(null);
   const [emailTarget, setEmailTarget] = useState<QuickSupplierEmailTarget | null>(null);
+  const [empenhoTarget, setEmpenhoTarget] = useState<SupplyOrderRow | null>(null);
   const { profile, can } = useAuth();
   const canWrite = can('supply_orders.write');
 
@@ -167,6 +170,7 @@ export function OrdensList() {
                 <th className="py-3 px-4 font-semibold text-center">NFs Vinculadas</th>
                 <th className="py-3 px-4 font-semibold text-right">Total Faturado</th>
                 <th className="py-3 px-4 font-semibold text-center">Arquivo PDF</th>
+                <th className="py-3 px-4 font-semibold text-center">Empenho</th>
                 <th className="py-3 px-4 font-semibold text-right">Ação</th>
               </tr>
             </thead>
@@ -203,6 +207,35 @@ export function OrdensList() {
                         kindName="Ordem de Fornecimento"
                         compact
                       />
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {o.empenho_document ? (
+                        <div className="inline-flex flex-col items-center gap-0.5">
+                          <DocumentActions
+                            documentId={o.empenho_document.id}
+                            fileName={o.empenho_document.file_name}
+                            kindName="Nota de Empenho"
+                            onReplace={canWrite ? () => setEmpenhoTarget(o) : undefined}
+                            compact
+                          />
+                          {o.empenho_number && (
+                            <span className="text-[10px] font-mono font-semibold text-indigo-700 dark:text-indigo-300">
+                              {o.empenho_number}
+                            </span>
+                          )}
+                        </div>
+                      ) : canWrite ? (
+                        <button
+                          type="button"
+                          onClick={() => setEmpenhoTarget(o)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-dashed border-indigo-300 dark:border-indigo-700 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
+                          title="Anexar Nota de Empenho desta Ordem"
+                        >
+                          <FileCheck2 className="w-3 h-3" /> Anexar Empenho
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 text-2xs">—</span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -286,7 +319,7 @@ export function OrdensList() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
                     Nenhuma Ordem de Fornecimento encontrada.
                   </td>
                 </tr>
@@ -330,6 +363,18 @@ export function OrdensList() {
         }}
         onEmailSaved={() => refetch()}
       />
+
+      {empenhoTarget && (
+        <UploadEmpenhoModal
+          isOpen={Boolean(empenhoTarget)}
+          onClose={() => setEmpenhoTarget(null)}
+          supplyOrderId={empenhoTarget.id}
+          ofNumber={empenhoTarget.of_number}
+          currentEmpenhoNumber={empenhoTarget.empenho_number}
+          hasExistingEmpenho={Boolean(empenhoTarget.empenho_document)}
+          onSuccess={() => refetch()}
+        />
+      )}
     </div>
   );
 }
@@ -546,10 +591,12 @@ function AnexarNotaModal({
 export function OrdemDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, can } = useAuth();
+  const canWriteOf = can('supply_orders.write');
   const [replaceModalOpen, setReplaceModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [emailTarget, setEmailTarget] = useState<QuickSupplierEmailTarget | null>(null);
+  const [empenhoModalOpen, setEmpenhoModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [signedModalOpen, setSignedModalOpen] = useState(false);
   const [attachInvoiceOpen, setAttachInvoiceOpen] = useState(false);
@@ -626,7 +673,10 @@ export function OrdemDetail() {
   }
 
   const { supply_order, items = [], documents, invoices } = data;
-  const currentDoc = documents.find((d) => d.is_current);
+  const ofDocs = documents.filter((d) => !d.kind || d.kind === 'OF');
+  const currentDoc = ofDocs.find((d) => d.is_current);
+  const empenhoDocs = documents.filter((d) => d.kind === 'EMPENHO');
+  const currentEmpenhoDoc = empenhoDocs.find((d) => d.is_current) || supply_order.empenho_document || null;
 
   return (
     <div className="space-y-6">
@@ -767,6 +817,17 @@ export function OrdemDetail() {
           >
             Enviar via Gmail
           </Button>
+          {canWriteOf && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="text-indigo-700 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
+              icon={<FileCheck2 className="w-3.5 h-3.5 text-indigo-600" />}
+              onClick={() => setEmpenhoModalOpen(true)}
+            >
+              {currentEmpenhoDoc ? 'Substituir Empenho' : 'Anexar Empenho'}
+            </Button>
+          )}
 
           {profile?.role === 'admin' && (
             <>
@@ -943,19 +1004,93 @@ export function OrdemDetail() {
         </div>
 
         {/* Histórico de versões se houver mais de 1 */}
-        {documents.length > 1 && (
+        {ofDocs.length > 1 && (
           <div className="mt-4 pt-4 border-t border-slate-100">
             <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-2">
               Histórico de versões anteriores
             </p>
             <div className="space-y-2">
-              {documents.filter((d) => !d.is_current).map((oldDoc) => (
+              {ofDocs.filter((d) => !d.is_current).map((oldDoc) => (
                 <div key={oldDoc.id} className="text-xs p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                   <div>
                     <span className="font-semibold text-slate-700">{oldDoc.file_name} (v{oldDoc.version})</span>
                     <p className="text-2xs text-slate-500">Substituído em {formatDateTimeBR(oldDoc.replaced_at)}: "{oldDoc.replace_reason}"</p>
                   </div>
                   <DocumentActions documentId={oldDoc.id} fileName={oldDoc.file_name} compact />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Cartão da Nota de Empenho da Ordem */}
+      <Card
+        title="Nota de Empenho da Ordem"
+        subtitle="Anexe o empenho referente a esta Ordem de Fornecimento (Material Elétrico ou Materiais de Uso do COZAM)"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-900/60">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-bold text-slate-900 dark:text-white">
+                {currentEmpenhoDoc ? currentEmpenhoDoc.file_name : 'Nenhum Empenho anexado à OF'}
+              </p>
+              {supply_order.empenho_number && (
+                <span className="text-2xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200">
+                  Empenho nº {supply_order.empenho_number}
+                </span>
+              )}
+            </div>
+            {currentEmpenhoDoc ? (
+              <p className="text-xs text-slate-500 mt-0.5">
+                Versão {currentEmpenhoDoc.version} · Enviado por {currentEmpenhoDoc.uploaded_by_name || 'Sistema'} em{' '}
+                {formatDateTimeBR(currentEmpenhoDoc.uploaded_at)}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500 mt-0.5">
+                Aceita arquivo em PDF ou imagem (PNG/JPG).
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {currentEmpenhoDoc ? (
+              <DocumentActions
+                documentId={currentEmpenhoDoc.id}
+                fileName={currentEmpenhoDoc.file_name}
+                kindName="Nota de Empenho"
+                onReplace={canWriteOf ? () => setEmpenhoModalOpen(true) : undefined}
+              />
+            ) : (
+              canWriteOf && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<FileCheck2 className="w-4 h-4" />}
+                  onClick={() => setEmpenhoModalOpen(true)}
+                >
+                  Anexar Empenho
+                </Button>
+              )
+            )}
+          </div>
+        </div>
+
+        {empenhoDocs.length > 1 && (
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+              Histórico de versões anteriores do Empenho
+            </p>
+            <div className="space-y-2">
+              {empenhoDocs.filter((d) => !d.is_current).map((oldDoc) => (
+                <div key={oldDoc.id} className="text-xs p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold text-slate-700">{oldDoc.file_name} (v{oldDoc.version})</span>
+                    <p className="text-2xs text-slate-500">
+                      Substituído em {formatDateTimeBR(oldDoc.replaced_at)}: "{oldDoc.replace_reason}"
+                    </p>
+                  </div>
+                  <DocumentActions documentId={oldDoc.id} fileName={oldDoc.file_name} kindName="Nota de Empenho" compact />
                 </div>
               ))}
             </div>
@@ -1098,6 +1233,16 @@ export function OrdemDetail() {
           await downloadSupplyOrderPdf(orderId, ofNum, supply_order.supplier_name, supply_order.total_value);
         }}
         onEmailSaved={() => refetch()}
+      />
+
+      <UploadEmpenhoModal
+        isOpen={empenhoModalOpen}
+        onClose={() => setEmpenhoModalOpen(false)}
+        supplyOrderId={id || supply_order.id}
+        ofNumber={supply_order.of_number}
+        currentEmpenhoNumber={supply_order.empenho_number}
+        hasExistingEmpenho={Boolean(currentEmpenhoDoc)}
+        onSuccess={() => refetch()}
       />
     </div>
   );

@@ -96,6 +96,8 @@ export interface SupplyOrderRow {
   created_at: string;
   created_by_name: string | null;
   document: DocumentRef | null;
+  empenho_number?: string | null;
+  empenho_document?: DocumentRef | null;
   invoices_count: number;
   invoices_total: number;
   municipality?: string | null;

@@ -107,6 +107,7 @@ export function NotaFiscalDetail() {
 
   const currentNfDoc = documents.find((d) => d.kind === 'NF' && d.is_current);
   const currentOfDoc = documents.find((d) => d.kind === 'OF' && d.is_current);
+  const currentEmpenhoDoc = documents.find((d) => d.kind === 'EMPENHO' && d.is_current);
 
   const availableBalance = invoice.balance ?? (invoice.amount ? invoice.amount - invoice.total_paid : 0);
 
@@ -605,8 +606,32 @@ export function NotaFiscalDetail() {
                 compact
               />
             </div>
+
+            {currentEmpenhoDoc && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-indigo-50/70 border border-indigo-200">
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  <FileText className="w-5 h-5 text-indigo-600 shrink-0" />
+                  <div className="overflow-hidden">
+                    <p className="text-xs font-bold text-slate-900 truncate">
+                      Empenho: {currentEmpenhoDoc.file_name}
+                    </p>
+                    <p className="text-2xs text-indigo-700">
+                      Nota de Empenho da OF · Versão {currentEmpenhoDoc.version}
+                    </p>
+                  </div>
+                </div>
+
+                <DocumentActions
+                  documentId={currentEmpenhoDoc.id}
+                  fileName={currentEmpenhoDoc.file_name}
+                  kindName="Nota de Empenho"
+                  compact
+                />
+              </div>
+            )}
+
             <p className="text-2xs text-slate-400">
-              O setor de Pagamentos pode visualizar, baixar e imprimir a OF sem precisar solicitá-la a Compras.
+              O setor de Pagamentos pode visualizar, baixar e imprimir a OF e o Empenho sem precisar solicitá-los a Compras.
             </p>
           </div>
         </Card>

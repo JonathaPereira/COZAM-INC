@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  FileCheck2,
   FileSpreadsheet,
   FileText,
   Layers,
@@ -29,6 +30,7 @@ import {
   QuickSupplierEmailModal,
   type QuickSupplierEmailTarget,
 } from '../../components/orders/QuickSupplierEmailModal.js';
+import { UploadEmpenhoModal } from '../../components/orders/UploadEmpenhoModal.js';
 
 interface ContractSearchItem {
   id: string;
@@ -94,6 +96,7 @@ export function LancamentoMultiploPage() {
   // Modal de correção manual de item caso algum item do contrato esteja fora de esquadro
   const [fixingItem, setFixingItem] = useState<ContractSearchItem | null>(null);
   const [emailTarget, setEmailTarget] = useState<QuickSupplierEmailTarget | null>(null);
+  const [empenhoOrderTarget, setEmpenhoOrderTarget] = useState<any | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedTerm(searchTerm.trim()), 250);
@@ -461,6 +464,18 @@ export function LancamentoMultiploPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setEmpenhoOrderTarget(ord)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold shadow-xs cursor-pointer ${
+                      ord.empenho_document
+                        ? 'bg-indigo-100 text-indigo-800 border border-indigo-300 hover:bg-indigo-200'
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    }`}
+                  >
+                    <FileCheck2 className="w-3.5 h-3.5" />
+                    {ord.empenho_document ? 'Empenho Anexado' : 'Anexar Empenho'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => navigate(`/ordens/${ord.id}`)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold cursor-pointer"
                   >
@@ -497,6 +512,28 @@ export function LancamentoMultiploPage() {
             queryClient.invalidateQueries({ queryKey: ['supply-orders'] });
           }}
         />
+
+        {empenhoOrderTarget && (
+          <UploadEmpenhoModal
+            isOpen={Boolean(empenhoOrderTarget)}
+            onClose={() => setEmpenhoOrderTarget(null)}
+            supplyOrderId={empenhoOrderTarget.id}
+            ofNumber={empenhoOrderTarget.of_number}
+            currentEmpenhoNumber={empenhoOrderTarget.empenho_number}
+            hasExistingEmpenho={Boolean(empenhoOrderTarget.empenho_document)}
+            onSuccess={(res) => {
+              setCreatedOrders((prev) =>
+                prev
+                  ? prev.map((o) =>
+                      o.id === empenhoOrderTarget.id
+                        ? { ...o, empenho_document: res.document, empenho_number: res.empenho_number }
+                        : o
+                    )
+                  : prev
+              );
+            }}
+          />
+        )}
       </div>
     );
   }

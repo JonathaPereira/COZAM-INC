@@ -32,6 +32,7 @@ const createSupplyOrderSchema = z.object({
   total_value: z.coerce.number().min(0, 'Valor total não pode ser negativo.').optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   municipality: z.string().trim().optional().nullable(),
+  empenho_number: z.string().trim().optional().nullable(),
   confirm_and_sign: z
     .preprocess((val) => val === true || val === 'true' || val === 1 || val === '1', z.boolean())
     .optional(),
@@ -95,6 +96,7 @@ const updateSupplyOrderSchema = z.object({
   total_value: z.coerce.number().min(0).optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   municipality: z.string().trim().optional().nullable(),
+  empenho_number: z.string().trim().optional().nullable(),
   reason: z.string().trim().optional(),
 });
 
@@ -155,7 +157,8 @@ supplyOrdersRouter.get('/supply-orders', authenticate, requirePermission('proces
               (select count(*)::int from public.invoices i where i.supply_order_id = so.id and i.cancelled_at is null) as invoices_count,
               (select coalesce(sum(i.amount), 0) from public.invoices i where i.supply_order_id = so.id and i.cancelled_at is null and i.verified) as invoices_total,
               (select string_agg(distinct i.municipality, ', ') from public.invoices i where i.supply_order_id = so.id and i.municipality is not null and trim(i.municipality) <> '') as municipalities,
-              (select to_jsonb(doc.*) from public.documents doc where doc.supply_order_id = so.id and doc.kind = 'OF' and doc.is_current) as document
+              (select to_jsonb(doc.*) from public.documents doc where doc.supply_order_id = so.id and doc.kind = 'OF' and doc.is_current) as document,
+              (select to_jsonb(doc.*) from public.documents doc where doc.supply_order_id = so.id and doc.kind = 'EMPENHO' and doc.is_current) as empenho_document
          from public.supply_orders so
          join public.suppliers s on s.id = so.supplier_id
          join public.administrative_processes ap on ap.id = so.process_id
@@ -195,7 +198,8 @@ supplyOrdersRouter.get('/supply-orders/:id', authenticate, requirePermission('pr
               d.name as destination_name, d.city as destination_city,
               cb.full_name as created_by_name,
               (select count(*)::int from public.invoices i where i.supply_order_id = so.id and i.cancelled_at is null) as invoices_count,
-              (select coalesce(sum(i.amount), 0) from public.invoices i where i.supply_order_id = so.id and i.cancelled_at is null and i.verified) as invoices_total
+              (select coalesce(sum(i.amount), 0) from public.invoices i where i.supply_order_id = so.id and i.cancelled_at is null and i.verified) as invoices_total,
+              (select to_jsonb(doc.*) from public.documents doc where doc.supply_order_id = so.id and doc.kind = 'EMPENHO' and doc.is_current) as empenho_document
          from public.supply_orders so
          join public.suppliers s on s.id = so.supplier_id
          join public.administrative_processes ap on ap.id = so.process_id
@@ -432,14 +436,27 @@ supplyOrdersRouter.post(
   '/supply-orders',
   authenticate,
   requirePermission('supply_orders.write'),
-  upload.single('file'),
+  upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'empenho_file', maxCount: 1 },
+  ]),
   async (req, res, next) => {
     try {
       const data = createSupplyOrderSchema.parse(req.body);
-      const file = req.file;
+      const filesMap = (req.files as Record<string, Express.Multer.File[]> | undefined) || {};
+      const file = filesMap.file?.[0] || req.file;
+      const empenhoFile = filesMap.empenho_file?.[0];
 
       if (file && file.mimetype !== 'application/pdf') {
         throw new AppError('O arquivo da Ordem de Fornecimento deve ser um PDF.', {
+          code: 'FORMATO_INVALIDO',
+          status: 400,
+        });
+      }
+
+      const allowedEmpenhoMimes = ['application/pdf', 'image/jpeg', 'image/png'];
+      if (empenhoFile && !allowedEmpenhoMimes.includes(empenhoFile.mimetype)) {
+        throw new AppError('O arquivo do Empenho deve ser PDF, PNG ou JPG.', {
           code: 'FORMATO_INVALIDO',
           status: 400,
         });
@@ -522,6 +539,35 @@ supplyOrdersRouter.post(
                 file.mimetype,
                 uploadRes.sizeBytes,
                 uploadRes.sha256,
+              ]
+            );
+          }
+
+          if (data.empenho_number && data.empenho_number.trim()) {
+            const empUpd = await client.query(
+              `update public.supply_orders set empenho_number = $1 where id = $2 returning *`,
+              [data.empenho_number.trim(), supplyOrder.id]
+            );
+            supplyOrder = empUpd.rows[0];
+          }
+
+          if (empenhoFile) {
+            const empUpload = await uploadDocument(
+              empenhoFile.buffer,
+              'EMPENHO',
+              empenhoFile.originalname,
+              empenhoFile.mimetype
+            );
+            await client.query(
+              `insert into public.documents (kind, supply_order_id, storage_path, file_name, mime_type, size_bytes, sha256)
+               values ('EMPENHO', $1, $2, $3, $4, $5, $6)`,
+              [
+                supplyOrder.id,
+                empUpload.storagePath,
+                empenhoFile.originalname,
+                empenhoFile.mimetype,
+                empUpload.sizeBytes,
+                empUpload.sha256,
               ]
             );
           }
@@ -705,8 +751,9 @@ supplyOrdersRouter.patch(
                     issue_date = coalesce($4, issue_date),
                     total_value = case when $5::boolean then $6::numeric else total_value end,
                     notes = coalesce($7, notes),
-                    municipality = case when $8::boolean then $9::text else municipality end
-              where id = $10
+                    municipality = case when $8::boolean then $9::text else municipality end,
+                    empenho_number = case when $10::boolean then $11::text else empenho_number end
+              where id = $12
               returning *`,
             [
               data.process_id ?? null,
@@ -718,6 +765,8 @@ supplyOrdersRouter.patch(
               data.notes ?? null,
               data.municipality !== undefined,
               data.municipality ?? null,
+              data.empenho_number !== undefined,
+              data.empenho_number ?? null,
               id,
             ]
           );
@@ -817,6 +866,113 @@ supplyOrdersRouter.post(
       );
 
       res.status(201).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Anexar ou substituir Nota de Empenho da Ordem de Fornecimento (Material Elétrico ou Materiais de Uso do COZAM)
+supplyOrdersRouter.post(
+  '/supply-orders/:id/empenho',
+  authenticate,
+  requirePermission('supply_orders.write'),
+  upload.single('file'),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const file = req.file;
+      const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+      const empenhoNumber =
+        typeof req.body.empenho_number === 'string' ? req.body.empenho_number.trim() : undefined;
+
+      if (!file) {
+        throw new AppError('Selecione o arquivo da Nota de Empenho para anexar.', {
+          code: 'ARQUIVO_OBRIGATORIO',
+          status: 400,
+        });
+      }
+
+      const allowedEmpenhoMimes = ['application/pdf', 'image/jpeg', 'image/png'];
+      if (!allowedEmpenhoMimes.includes(file.mimetype)) {
+        throw new AppError('A Nota de Empenho deve estar em formato PDF, PNG ou JPG.', {
+          code: 'FORMATO_INVALIDO',
+          status: 400,
+        });
+      }
+
+      const result = await runInTransaction(
+        {
+          actorId: req.user!.id,
+          reason: reason || 'Anexação de Nota de Empenho à Ordem de Fornecimento',
+          requestId: req.requestId,
+        },
+        async (client) => {
+          const ofRes = await client.query('select * from public.supply_orders where id = $1', [id]);
+          if (ofRes.rowCount === 0) {
+            throw new AppError('Ordem de Fornecimento não encontrada.', { code: 'NAO_ENCONTRADO', status: 404 });
+          }
+          const order = ofRes.rows[0];
+
+          const currentDoc = await client.query(
+            `select * from public.documents where supply_order_id = $1 and kind = 'EMPENHO' and is_current = true`,
+            [id]
+          );
+
+          let nextVersion = 1;
+          const isReplacing = (currentDoc.rowCount ?? 0) > 0;
+          if (isReplacing) {
+            nextVersion = (currentDoc.rows[0].version ?? 1) + 1;
+            const replaceReason = reason || 'Atualização da Nota de Empenho da OF';
+            await client.query(
+              `update public.documents
+                  set is_current = false,
+                      replaced_at = now(),
+                      replaced_by = $1,
+                      replace_reason = $2
+                where id = $3`,
+              [req.user!.id, replaceReason, currentDoc.rows[0].id]
+            );
+          }
+
+          const uploadRes = await uploadDocument(file.buffer, 'EMPENHO', file.originalname, file.mimetype);
+          const ins = await client.query(
+            `insert into public.documents (kind, supply_order_id, storage_path, file_name, mime_type, size_bytes, sha256, version, is_current, uploaded_by)
+             values ('EMPENHO', $1, $2, $3, $4, $5, $6, $7, true, $8)
+             returning *`,
+            [
+              id,
+              uploadRes.storagePath,
+              file.originalname,
+              file.mimetype,
+              uploadRes.sizeBytes,
+              uploadRes.sha256,
+              nextVersion,
+              req.user!.id,
+            ]
+          );
+
+          let updatedEmpenhoNumber = order.empenho_number ?? null;
+          if (empenhoNumber !== undefined) {
+            const cleanNum = empenhoNumber || null;
+            await client.query(`update public.supply_orders set empenho_number = $1, updated_at = now() where id = $2`, [
+              cleanNum,
+              id,
+            ]);
+            updatedEmpenhoNumber = cleanNum;
+          }
+
+          return {
+            document: ins.rows[0],
+            empenho_number: updatedEmpenhoNumber,
+          };
+        }
+      );
+
+      res.status(201).json({
+        success: true,
+        ...result,
+      });
     } catch (err) {
       next(err);
     }
