@@ -10,6 +10,7 @@ import {
   FileText,
   Layers,
   Loader2,
+  Mail,
   Pencil,
   PenTool,
   Plus,
@@ -22,7 +23,12 @@ import { toast } from 'sonner';
 import { api, getErrorMessage } from '../../lib/api.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 import { downloadSupplyOrderPdf, downloadSupplyOrderXlsx } from '../../lib/documents.js';
+import { openGmailCompose } from '../../lib/email.js';
 import { EditarItemContratoModal } from '../../components/contracts/EditarItemContratoModal.js';
+import {
+  QuickSupplierEmailModal,
+  type QuickSupplierEmailTarget,
+} from '../../components/orders/QuickSupplierEmailModal.js';
 
 interface ContractSearchItem {
   id: string;
@@ -87,6 +93,7 @@ export function LancamentoMultiploPage() {
 
   // Modal de correção manual de item caso algum item do contrato esteja fora de esquadro
   const [fixingItem, setFixingItem] = useState<ContractSearchItem | null>(null);
+  const [emailTarget, setEmailTarget] = useState<QuickSupplierEmailTarget | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedTerm(searchTerm.trim()), 250);
@@ -406,6 +413,54 @@ export function LancamentoMultiploPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => {
+                      const destName = destinations.find((d) => d.id === selectedDestinationId)?.name || null;
+                      if (ord.supplier_email) {
+                        const { opened } = openGmailCompose({
+                          ofNumber: ord.of_number,
+                          supplierName: ord.supplier_name,
+                          supplierEmail: ord.supplier_email,
+                          contractNumber: ord.contract_number,
+                          totalValue: ord.total_value,
+                          issueDate: ord.issue_date || issueDate,
+                          destinationName: destName,
+                          municipality: ord.municipality || municipality || null,
+                          deliveryDeadlineDays: ord.contract_delivery_deadline_days ?? null,
+                          items: ord.item_summaries || [],
+                          notes: ord.notes || notes || null,
+                        });
+                        if (!opened) {
+                          toast.info('Libere pop-ups no navegador se o Gmail não abriu automaticamente.');
+                        }
+                      } else {
+                        setEmailTarget({
+                          supplierId: ord.supplier_id,
+                          supplierName: ord.supplier_name,
+                          currentEmail: ord.supplier_email || '',
+                          orderId: ord.id,
+                          ofNumber: ord.of_number,
+                          contractNumber: ord.contract_number,
+                          totalValue: ord.total_value,
+                          issueDate: ord.issue_date || issueDate,
+                          destinationName: destName,
+                          municipality: ord.municipality || municipality || null,
+                          deliveryDeadlineDays: ord.contract_delivery_deadline_days ?? null,
+                          items: ord.item_summaries || [],
+                          notes: ord.notes || notes || null,
+                        });
+                      }
+                    }}
+                    title={
+                      ord.supplier_email
+                        ? `Abrir Gmail para ${ord.supplier_email}`
+                        : 'Informar e-mail do fornecedor e abrir Gmail'
+                    }
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    <Mail className="w-3.5 h-3.5" /> Enviar via Gmail
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => navigate(`/ordens/${ord.id}`)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold cursor-pointer"
                   >
@@ -426,6 +481,22 @@ export function LancamentoMultiploPage() {
             </button>
           </div>
         </div>
+
+        <QuickSupplierEmailModal
+          target={emailTarget}
+          onClose={() => setEmailTarget(null)}
+          onDownloadPdf={(orderId, ofNum) => {
+            const matched = createdOrders.find((o) => o.id === orderId);
+            return downloadSupplyOrderPdf(orderId, ofNum, matched?.supplier_name, matched?.total_value);
+          }}
+          onEmailSaved={(supId, savedEmail) => {
+            setCreatedOrders((prev) =>
+              prev ? prev.map((o) => (o.supplier_id === supId ? { ...o, supplier_email: savedEmail } : o)) : prev
+            );
+            queryClient.invalidateQueries({ queryKey: ['suppliers-admin'] });
+            queryClient.invalidateQueries({ queryKey: ['supply-orders'] });
+          }}
+        />
       </div>
     );
   }

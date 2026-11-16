@@ -148,8 +148,8 @@ supplyOrdersRouter.get('/supply-orders', authenticate, requirePermission('proces
     }
 
     const result = await pool.query(
-      `select so.*, s.name as supplier_name, ap.process_number,
-              c.contract_number, d.name as destination_name,
+      `select so.*, s.name as supplier_name, s.email as supplier_email, ap.process_number,
+              c.contract_number, c.delivery_deadline_days as contract_delivery_deadline_days, d.name as destination_name,
               cb.full_name as created_by_name,
               (select count(*)::int from public.supply_order_items soi where soi.supply_order_id = so.id) as items_count,
               (select count(*)::int from public.invoices i where i.supply_order_id = so.id and i.cancelled_at is null) as invoices_count,
@@ -187,9 +187,11 @@ supplyOrdersRouter.get('/supply-orders/:id', authenticate, requirePermission('pr
 
     const ofRes = await pool.query(
       `select so.*, s.name as supplier_name, s.cnpj as supplier_cnpj, s.legal_name as supplier_legal_name,
+              s.email as supplier_email, s.phone as supplier_phone,
               ap.process_number,
               c.contract_number, c.object as contract_object, c.legal_framework as contract_legal_framework,
               c.signing_date as contract_signing_date, c.start_date as contract_start_date, c.end_date as contract_end_date,
+              c.delivery_deadline_days as contract_delivery_deadline_days,
               d.name as destination_name, d.city as destination_city,
               cb.full_name as created_by_name,
               (select count(*)::int from public.invoices i where i.supply_order_id = so.id and i.cancelled_at is null) as invoices_count,
@@ -562,8 +564,8 @@ supplyOrdersRouter.post(
         async (client) => {
           const itemRowsRes = await client.query(
             `SELECT ci.id AS contract_item_id, ci.contract_id, ci.item_code, ci.description, ci.unit, ci.unit_price,
-                    c.contract_number, c.year AS contract_year, c.supplier_id,
-                    s.name AS supplier_name
+                    c.contract_number, c.year AS contract_year, c.supplier_id, c.delivery_deadline_days,
+                    s.name AS supplier_name, s.email AS supplier_email
                FROM public.contract_items ci
                JOIN public.contracts c ON c.id = ci.contract_id
                JOIN public.suppliers s ON s.id = c.supplier_id
@@ -584,9 +586,12 @@ supplyOrdersRouter.post(
               contract_id: string;
               contract_number: string;
               contract_year: number;
+              delivery_deadline_days: number | null;
               supplier_id: string;
               supplier_name: string;
+              supplier_email: string | null;
               items: Array<{ contract_item_id: string; quantity: number }>;
+              item_summaries: Array<{ description: string; unit: string; quantity: number }>;
             }
           >();
 
@@ -598,13 +603,21 @@ supplyOrdersRouter.post(
                 contract_id: row.contract_id,
                 contract_number: row.contract_number,
                 contract_year: Number(row.contract_year),
+                delivery_deadline_days: row.delivery_deadline_days != null ? Number(row.delivery_deadline_days) : null,
                 supplier_id: row.supplier_id,
                 supplier_name: row.supplier_name,
+                supplier_email: row.supplier_email || null,
                 items: [],
+                item_summaries: [],
               };
               byContract.set(row.contract_id, group);
             }
             group.items.push({ contract_item_id: row.contract_item_id, quantity: qty });
+            group.item_summaries.push({
+              description: row.description,
+              unit: row.unit,
+              quantity: qty,
+            });
           }
 
           const year = new Date(data.issue_date).getFullYear();
@@ -635,8 +648,11 @@ supplyOrdersRouter.post(
               ...order,
               total_value: order.total_value !== null ? Number(order.total_value) : 0,
               contract_number: `${group.contract_number}/${group.contract_year}`,
+              contract_delivery_deadline_days: group.delivery_deadline_days,
               supplier_name: group.supplier_name,
+              supplier_email: group.supplier_email,
               items_count: group.items.length,
+              item_summaries: group.item_summaries,
             });
           }
 

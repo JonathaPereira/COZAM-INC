@@ -37,6 +37,9 @@ export interface Supplier {
   name: string;
   legal_name: string | null;
   cnpj: string | null;
+  email?: string | null;
+  phone?: string | null;
+  contact_person?: string | null;
   display_order: number;
   active: boolean;
   is_simples_nacional?: boolean;
@@ -85,6 +88,7 @@ export interface SupplyOrderRow {
   process_number: string;
   supplier_id: string;
   supplier_name: string;
+  supplier_email?: string | null;
   of_number: string;
   issue_date: string;
   total_value: number | null;

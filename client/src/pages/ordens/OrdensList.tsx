@@ -19,6 +19,7 @@ import {
   Layers,
   Receipt,
   AlertCircle,
+  Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api.js';
@@ -35,7 +36,12 @@ import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
 import { EditSupplyOrderModal } from '../../components/ordens/EditSupplyOrderModal.js';
 import { UploadSignedOfModal } from '../../components/orders/UploadSignedOfModal.js';
+import {
+  QuickSupplierEmailModal,
+  type QuickSupplierEmailTarget,
+} from '../../components/orders/QuickSupplierEmailModal.js';
 import { downloadSupplyOrderPdf, downloadSupplyOrderXlsx } from '../../lib/documents.js';
+import { openGmailCompose } from '../../lib/email.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 
 export function OrdensList() {
@@ -43,6 +49,7 @@ export function OrdensList() {
   const [municipality, setMunicipality] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<SupplyOrderRow | null>(null);
   const [editingOf, setEditingOf] = useState<SupplyOrderRow | null>(null);
+  const [emailTarget, setEmailTarget] = useState<QuickSupplierEmailTarget | null>(null);
   const { profile, can } = useAuth();
   const canWrite = can('supply_orders.write');
 
@@ -199,6 +206,51 @@ export function OrdensList() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                          icon={<Mail className="w-3.5 h-3.5" />}
+                          title={
+                            o.supplier_email
+                              ? `Enviar OF via Gmail (${o.supplier_email})`
+                              : 'Cadastrar e-mail do fornecedor e abrir Gmail'
+                          }
+                          onClick={() => {
+                            if (o.supplier_email) {
+                              const { opened } = openGmailCompose({
+                                ofNumber: o.of_number,
+                                supplierName: o.supplier_name || 'Fornecedor',
+                                supplierEmail: o.supplier_email,
+                                contractNumber: o.contract_number || null,
+                                totalValue: o.total_value,
+                                issueDate: o.issue_date,
+                                destinationName: o.destination_name || null,
+                                municipality: o.municipalities || null,
+                                deliveryDeadlineDays: (o as any).contract_delivery_deadline_days ?? null,
+                                notes: o.notes,
+                              });
+                              if (!opened) {
+                                toast.info('Libere pop-ups no navegador se o Gmail não abriu automaticamente.');
+                              }
+                            } else {
+                              setEmailTarget({
+                                supplierId: o.supplier_id,
+                                supplierName: o.supplier_name || 'Fornecedor',
+                                currentEmail: '',
+                                orderId: o.id,
+                                ofNumber: o.of_number,
+                                contractNumber: o.contract_number || null,
+                                totalValue: o.total_value,
+                                issueDate: o.issue_date,
+                                destinationName: o.destination_name || null,
+                                municipality: o.municipalities || null,
+                                deliveryDeadlineDays: (o as any).contract_delivery_deadline_days ?? null,
+                                notes: o.notes,
+                              });
+                            }
+                          }}
+                        />
                         <Link to={`/ordens/${o.id}`}>
                           <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />}>
                             Ver
@@ -267,6 +319,16 @@ export function OrdensList() {
         onClose={() => setEditingOf(null)}
         onSuccess={refetch}
         supplyOrder={editingOf}
+      />
+
+      <QuickSupplierEmailModal
+        target={emailTarget}
+        onClose={() => setEmailTarget(null)}
+        onDownloadPdf={async (orderId, ofNum) => {
+          const matched = ofs?.find((item) => item.id === orderId);
+          await downloadSupplyOrderPdf(orderId, ofNum, matched?.supplier_name, matched?.total_value);
+        }}
+        onEmailSaved={() => refetch()}
       />
     </div>
   );
@@ -487,6 +549,7 @@ export function OrdemDetail() {
   const { profile } = useAuth();
   const [replaceModalOpen, setReplaceModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [emailTarget, setEmailTarget] = useState<QuickSupplierEmailTarget | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [signedModalOpen, setSignedModalOpen] = useState(false);
   const [attachInvoiceOpen, setAttachInvoiceOpen] = useState(false);
@@ -649,6 +712,60 @@ export function OrdemDetail() {
             onClick={() => setSignedModalOpen(true)}
           >
             Anexar Via Assinada
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="text-sky-700 border-sky-200 bg-sky-50 hover:bg-sky-100"
+            icon={<Mail className="w-3.5 h-3.5 text-sky-600" />}
+            title={
+              supply_order.supplier_email
+                ? `Enviar OF via Gmail para ${supply_order.supplier_email}`
+                : 'Cadastrar e-mail do fornecedor e enviar OF via Gmail'
+            }
+            onClick={() => {
+              const orderItems = items.map((it: any) => ({
+                description: it.description,
+                unit: it.unit,
+                quantity: Number(it.quantity),
+              }));
+              if (supply_order.supplier_email) {
+                const { opened } = openGmailCompose({
+                  ofNumber: supply_order.of_number,
+                  supplierName: supply_order.supplier_name || 'Fornecedor',
+                  supplierEmail: supply_order.supplier_email,
+                  contractNumber: supply_order.contract_number || null,
+                  totalValue: supply_order.total_value,
+                  issueDate: supply_order.issue_date,
+                  destinationName: (supply_order as any).destination_name || null,
+                  municipality: (supply_order as any).destination_city || supply_order.municipalities || null,
+                  deliveryDeadlineDays: (supply_order as any).contract_delivery_deadline_days ?? null,
+                  items: orderItems,
+                  notes: supply_order.notes,
+                });
+                if (!opened) {
+                  toast.info('Libere pop-ups no navegador se o Gmail não abriu automaticamente.');
+                }
+              } else {
+                setEmailTarget({
+                  supplierId: supply_order.supplier_id,
+                  supplierName: supply_order.supplier_name || 'Fornecedor',
+                  currentEmail: '',
+                  orderId: id || supply_order.id,
+                  ofNumber: supply_order.of_number,
+                  contractNumber: supply_order.contract_number || null,
+                  totalValue: supply_order.total_value,
+                  issueDate: supply_order.issue_date,
+                  destinationName: (supply_order as any).destination_name || null,
+                  municipality: (supply_order as any).destination_city || supply_order.municipalities || null,
+                  deliveryDeadlineDays: (supply_order as any).contract_delivery_deadline_days ?? null,
+                  items: orderItems,
+                  notes: supply_order.notes,
+                });
+              }
+            }}
+          >
+            Enviar via Gmail
           </Button>
 
           {profile?.role === 'admin' && (
@@ -972,6 +1089,15 @@ export function OrdemDetail() {
         supplyOrder={supply_order}
         defaultAmount={supply_order.total_value}
         onSuccess={refetch}
+      />
+
+      <QuickSupplierEmailModal
+        target={emailTarget}
+        onClose={() => setEmailTarget(null)}
+        onDownloadPdf={async (orderId, ofNum) => {
+          await downloadSupplyOrderPdf(orderId, ofNum, supply_order.supplier_name, supply_order.total_value);
+        }}
+        onEmailSaved={() => refetch()}
       />
     </div>
   );

@@ -1678,7 +1678,7 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     const supLimpeza = await request(app)
       .post('/api/suppliers')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Limpex Distribuidora Ltda', cnpj: '33.111.222/0001-01' })
+      .send({ name: 'Limpex Distribuidora Ltda', cnpj: '33.111.222/0001-01', email: 'vendas@limpex.com.br' })
       .expect(201);
 
     const supCafe = await request(app)
@@ -1967,5 +1967,42 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
       const sumCheck = Math.round((Number(ct.requested_amount) + Number(ct.remaining_amount)) * 100) / 100;
       expect(sumCheck).toBe(Math.round(Number(ct.total_amount) * 100) / 100);
     }
+
+    // 10. Conferência de e-mail do fornecedor para disparo automático via Gmail
+    const limpexBatchOrder = batchRes.body.orders.find((o: any) => o.supplier_id === supLimpeza.body.id);
+    expect(limpexBatchOrder.supplier_email).toBe('vendas@limpex.com.br');
+    expect(Array.isArray(limpexBatchOrder.item_summaries)).toBe(true);
+    expect(limpexBatchOrder.item_summaries.length).toBeGreaterThanOrEqual(2);
+
+    const patchSupCafe = await request(app)
+      .patch(`/api/suppliers/${supCafe.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        email: 'pedido@cafeteria.com.br',
+        phone: '(82) 99999-0000',
+        contact_person: 'João',
+      })
+      .expect(200);
+    expect(patchSupCafe.body.email).toBe('pedido@cafeteria.com.br');
+    expect(patchSupCafe.body.phone).toBe('(82) 99999-0000');
+    expect(patchSupCafe.body.contact_person).toBe('João');
+
+    const cafeBatchOrder = batchRes.body.orders.find((o: any) => o.supplier_id === supCafe.body.id);
+    const listOfsRes = await request(app).get('/api/supply-orders').set('Authorization', `Bearer ${adminToken}`).expect(200);
+    const cafeRow = listOfsRes.body.find((o: any) => o.id === cafeBatchOrder.id);
+    expect(cafeRow.supplier_email).toBe('pedido@cafeteria.com.br');
+
+    const cafeDetailRes = await request(app)
+      .get(`/api/supply-orders/${cafeBatchOrder.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(cafeDetailRes.body.supply_order.supplier_email).toBe('pedido@cafeteria.com.br');
+
+    const clearedSup = await request(app)
+      .patch(`/api/suppliers/${supCafe.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ email: null })
+      .expect(200);
+    expect(clearedSup.body.email).toBeNull();
   });
 });

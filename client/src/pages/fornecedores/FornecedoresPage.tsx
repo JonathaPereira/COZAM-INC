@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Building2, Plus, Receipt, DollarSign, ArrowRight } from 'lucide-react';
+import { Building2, Plus, Receipt, DollarSign, ArrowRight, Mail, Phone, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, getErrorMessage } from '../../lib/api.js';
 import type { Supplier } from '@cozam/shared';
@@ -16,6 +16,9 @@ export function FornecedoresPage() {
   const [name, setName] = useState('');
   const [legalName, setLegalName] = useState('');
   const [cnpj, setCnpj] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
   const [displayOrder, setDisplayOrder] = useState(100);
   const [isSimplesNacional, setIsSimplesNacional] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -29,23 +32,21 @@ export function FornecedoresPage() {
     e.preventDefault();
     setSaving(true);
     try {
+      const payload = {
+        name: name.trim(),
+        legal_name: legalName.trim() || null,
+        cnpj: cnpj.trim() || null,
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        contact_person: contactPerson.trim() || null,
+        display_order: displayOrder,
+        is_simples_nacional: isSimplesNacional,
+      };
       if (selectedSupplier) {
-        await api.patch(`/suppliers/${selectedSupplier.id}`, {
-          name: name.trim(),
-          legal_name: legalName.trim() || null,
-          cnpj: cnpj.trim() || null,
-          display_order: displayOrder,
-          is_simples_nacional: isSimplesNacional,
-        });
+        await api.patch(`/suppliers/${selectedSupplier.id}`, payload);
         toast.success('Fornecedor atualizado com sucesso!');
       } else {
-        await api.post('/suppliers', {
-          name: name.trim(),
-          legal_name: legalName.trim() || null,
-          cnpj: cnpj.trim() || null,
-          display_order: displayOrder,
-          is_simples_nacional: isSimplesNacional,
-        });
+        await api.post('/suppliers', payload);
         toast.success('Fornecedor cadastrado com sucesso!');
       }
       setModalOpen(false);
@@ -62,6 +63,9 @@ export function FornecedoresPage() {
     setName('');
     setLegalName('');
     setCnpj('');
+    setEmail('');
+    setPhone('');
+    setContactPerson('');
     setDisplayOrder(100);
     setIsSimplesNacional(false);
     setModalOpen(true);
@@ -72,6 +76,9 @@ export function FornecedoresPage() {
     setName(s.name);
     setLegalName(s.legal_name || '');
     setCnpj(s.cnpj || '');
+    setEmail(s.email || '');
+    setPhone(s.phone || '');
+    setContactPerson(s.contact_person || '');
     setDisplayOrder(s.display_order);
     setIsSimplesNacional(Boolean(s.is_simples_nacional));
     setModalOpen(true);
@@ -122,6 +129,27 @@ export function FornecedoresPage() {
                   </div>
                   {s.legal_name && <p className="text-xs text-slate-500 mt-0.5">{s.legal_name}</p>}
                   {s.cnpj && <p className="text-2xs text-slate-400 mt-0.5 font-mono">CNPJ: {s.cnpj}</p>}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs">
+                    {s.email ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                        <Mail className="w-3.5 h-3.5" /> {s.email}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-amber-600">
+                        <Mail className="w-3.5 h-3.5" /> Sem e-mail cadastrado
+                      </span>
+                    )}
+                    {s.phone && (
+                      <span className="inline-flex items-center gap-1 text-slate-500">
+                        <Phone className="w-3 h-3" /> {s.phone}
+                      </span>
+                    )}
+                    {s.contact_person && (
+                      <span className="inline-flex items-center gap-1 text-slate-500">
+                        <User className="w-3 h-3" /> {s.contact_person}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -175,6 +203,30 @@ export function FornecedoresPage() {
             onChange={(e) => setCnpj(e.target.value)}
             placeholder="00.000.000/0000-00"
           />
+
+          <Input
+            label="E-mail para envio de OFs (Gmail)"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="compras@fornecedor.com.br"
+            helperText="Usado para abrir o Gmail automaticamente ao enviar Ordens de Fornecimento"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Telefone / WhatsApp (opcional)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(00) 00000-0000"
+            />
+            <Input
+              label="Pessoa de contato (opcional)"
+              value={contactPerson}
+              onChange={(e) => setContactPerson(e.target.value)}
+              placeholder="Ex: Maria Silva"
+            />
+          </div>
 
           <Input
             label="Ordem de exibição nas listas (menor aparece primeiro)"
