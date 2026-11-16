@@ -82,7 +82,28 @@ export async function printDocument(documentId: string): Promise<void> {
   }
 }
 
-export async function downloadSupplyOrderPdf(orderId: string, ofNumber?: string): Promise<void> {
+import { buildSupplyOrderFilename } from '@cozam/shared';
+
+function extractFilenameFromHeader(headerValue: string | null): string | null {
+  if (!headerValue) return null;
+  const utf8Match = headerValue.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1].trim());
+    } catch {
+      // ignore decode failure
+    }
+  }
+  const asciiMatch = headerValue.match(/filename="([^"]+)"/i) || headerValue.match(/filename=([^;]+)/i);
+  return asciiMatch?.[1]?.trim() || null;
+}
+
+export async function downloadSupplyOrderPdf(
+  orderId: string,
+  ofNumber?: string,
+  supplierName?: string,
+  totalValue?: number | null
+): Promise<void> {
   const token = localStorage.getItem('cozam_token');
   const headers = new Headers();
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -90,19 +111,25 @@ export async function downloadSupplyOrderPdf(orderId: string, ofNumber?: string)
   const res = await fetch(`/api/supply-orders/${orderId}/pdf`, { headers });
   if (!res.ok) throw new Error('Erro ao gerar o PDF oficial da Ordem de Fornecimento.');
 
+  const serverFilename = extractFilenameFromHeader(res.headers.get('Content-Disposition'));
   const blob = await res.blob();
   const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = blobUrl;
-  const safeName = (ofNumber || orderId).replace(/[^a-zA-Z0-9_-]/g, '_');
-  a.download = `OF_${safeName}_OFICIAL.pdf`;
+  a.download =
+    serverFilename || buildSupplyOrderFilename(ofNumber || orderId, supplierName, totalValue, 'pdf');
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 }
 
-export async function downloadSupplyOrderXlsx(orderId: string, ofNumber?: string): Promise<void> {
+export async function downloadSupplyOrderXlsx(
+  orderId: string,
+  ofNumber?: string,
+  supplierName?: string,
+  totalValue?: number | null
+): Promise<void> {
   const token = localStorage.getItem('cozam_token');
   const headers = new Headers();
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -110,12 +137,13 @@ export async function downloadSupplyOrderXlsx(orderId: string, ofNumber?: string
   const res = await fetch(`/api/supply-orders/${orderId}/xlsx`, { headers });
   if (!res.ok) throw new Error('Erro ao gerar a planilha XLSX oficial da Ordem de Fornecimento.');
 
+  const serverFilename = extractFilenameFromHeader(res.headers.get('Content-Disposition'));
   const blob = await res.blob();
   const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = blobUrl;
-  const safeName = (ofNumber || orderId).replace(/[^a-zA-Z0-9_-]/g, '_');
-  a.download = `OF_${safeName}_OFICIAL.xlsx`;
+  a.download =
+    serverFilename || buildSupplyOrderFilename(ofNumber || orderId, supplierName, totalValue, 'xlsx');
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

@@ -402,3 +402,43 @@ export function calculatePaymentTaxes(
     isTaxExempt: false,
   };
 }
+
+/**
+ * Formata o nome do arquivo da Ordem de Fornecimento na sequência:
+ * Número da OF - Empresa (1º e 2º nome) - Valor
+ */
+export function buildSupplyOrderFilename(
+  orderNumber?: string | null,
+  supplierName?: string | null,
+  totalAmount?: number | string | null,
+  ext: 'pdf' | 'xlsx' = 'pdf'
+): string {
+  const cleanInvalid = (s: string) =>
+    s
+      .replace(/[\\/:*?"<>|]+/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const ofPart = cleanInvalid(String(orderNumber || 'OF').replace(/\//g, '-'));
+
+  const supWords = String(supplierName || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' ');
+  const companyPart = cleanInvalid(supWords);
+
+  const numVal =
+    totalAmount !== null && totalAmount !== undefined && totalAmount !== ''
+      ? Number(totalAmount)
+      : NaN;
+  const valuePart = !Number.isNaN(numVal)
+    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+        .format(numVal)
+        .replace(/\u00A0/g, ' ')
+    : '';
+
+  const baseName = [ofPart, companyPart, valuePart].filter(Boolean).join(' - ') || 'Ordem_de_Fornecimento';
+  return `${baseName}.${ext}`;
+}

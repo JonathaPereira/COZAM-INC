@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import crypto from 'node:crypto';
+import { buildSupplyOrderFilename } from '@cozam/shared';
 import { authenticate, requirePermission } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import { getPool } from '../db/pool.js';
@@ -1158,7 +1159,7 @@ async function fetchSupplyOrderDocData(orderId: string): Promise<SupplyOrderDocD
     supplier_address: fullSupplierAddress,
     supplier_phone: row.supplier_phone,
     supplier_email: row.supplier_email,
-    issuer_name: row.signer_name || row.created_by_name || 'JONATHA PEREIRA DE JESUS',
+    issuer_name: 'JONATHA PEREIRA DE JESUS',
     issuer_role: row.signer_job_title || 'SUPERVISOR DE COMPRAS',
     is_signed: isSigned,
     signed_electronically: Boolean(row.signed_electronically),
@@ -1176,9 +1177,19 @@ supplyOrdersRouter.get('/supply-orders/:id/pdf', authenticate, requirePermission
     const docData = await fetchSupplyOrderDocData(id);
     const pdfBytes = await generateSupplyOrderPdf(docData);
 
-    const safeOf = docData.order_number.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = buildSupplyOrderFilename(
+      docData.order_number,
+      docData.supplier_trade_name || docData.supplier_name,
+      docData.total_amount,
+      'pdf'
+    );
+    const asciiFallback = filename.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7E]/g, '');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="OF-${safeOf}.pdf"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
     res.send(Buffer.from(pdfBytes));
   } catch (err) {
     next(err);
@@ -1191,10 +1202,20 @@ supplyOrdersRouter.get('/supply-orders/:id/xlsx', authenticate, requirePermissio
     const docData = await fetchSupplyOrderDocData(id);
     const wb = await generateSupplyOrderWorkbook(docData);
 
-    const safeOf = docData.order_number.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = buildSupplyOrderFilename(
+      docData.order_number,
+      docData.supplier_trade_name || docData.supplier_name,
+      docData.total_amount,
+      'xlsx'
+    );
+    const asciiFallback = filename.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7E]/g, '');
     const buffer = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="OF-${safeOf}.xlsx"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
     res.send(Buffer.from(buffer));
   } catch (err) {
     next(err);

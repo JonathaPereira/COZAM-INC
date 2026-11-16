@@ -617,7 +617,7 @@ export function OrdemDetail() {
             onClick={async () => {
               try {
                 toast.loading('Gerando PDF Oficial...', { id: 'pdf-dl-detail' });
-                await downloadSupplyOrderPdf(id!, supply_order.of_number);
+                await downloadSupplyOrderPdf(id!, supply_order.of_number, supply_order.supplier_name, supply_order.total_value);
                 toast.success('Download do PDF Oficial concluído!', { id: 'pdf-dl-detail' });
               } catch (e: any) {
                 toast.error(e.message || 'Erro ao baixar PDF.', { id: 'pdf-dl-detail' });
@@ -633,7 +633,7 @@ export function OrdemDetail() {
             onClick={async () => {
               try {
                 toast.loading('Gerando Planilha XLSX...', { id: 'xlsx-dl-detail' });
-                await downloadSupplyOrderXlsx(id!, supply_order.of_number);
+                await downloadSupplyOrderXlsx(id!, supply_order.of_number, supply_order.supplier_name, supply_order.total_value);
                 toast.success('Download da Planilha XLSX concluído!', { id: 'xlsx-dl-detail' });
               } catch (e: any) {
                 toast.error(e.message || 'Erro ao baixar XLSX.', { id: 'xlsx-dl-detail' });

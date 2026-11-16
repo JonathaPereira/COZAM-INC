@@ -294,8 +294,8 @@ contractsRouter.get('/contracts/:id', authenticate, requirePermission('contracts
         requested_quantity: Number(it.requested_quantity || 0),
         delivered_quantity: Number(it.requested_quantity || 0),
         available_quantity: Number(it.available_quantity || 0),
-        executed_amount: Number(it.executed_amount || 0),
-        remaining_amount: Number(it.remaining_amount || 0),
+        executed_amount: Math.round(Number(it.requested_quantity || 0) * Number(it.unit_price) * 100) / 100,
+        remaining_amount: Math.round(Number(it.available_quantity || 0) * Number(it.unit_price) * 100) / 100,
       })),
       amendments: amendmentsRes.rows.map((a) => ({
         ...a,

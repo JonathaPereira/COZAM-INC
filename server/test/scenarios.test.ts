@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import ExcelJS from 'exceljs';
 import { PGlite } from '@electric-sql/pglite';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { buildSupplyOrderFilename } from '@cozam/shared';
 import { createApp } from '../src/app.js';
 import { createPGlitePool, setCustomPool, type DbPool } from '../src/db/pool.js';
 import { runMigrations } from '../src/db/migrate.js';
@@ -1886,25 +1888,84 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
       expect(ord.signed_electronically).toBe(true);
       expect(ord.electronic_signature_hash).toBeDefined();
 
-      // 7. Valida geração individual do PDF já assinado para cada uma das 3 ordens
+      // 7. Valida geração individual do PDF e XLSX já assinados, nome do arquivo e assinador "JONATHA PEREIRA DE JESUS"
       const pdfRes = await request(app)
         .get(`/api/supply-orders/${ord.id}/pdf`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
       expect(pdfRes.headers['content-type']).toContain('application/pdf');
       expect(pdfRes.body.length).toBeGreaterThan(1000);
+
+      const expectedPdfName = buildSupplyOrderFilename(ord.of_number, ord.supplier_name, ord.total_value, 'pdf');
+      expect(decodeURIComponent(pdfRes.headers['content-disposition'])).toContain(expectedPdfName);
+
+      const xlsxRes = await request(app)
+        .get(`/api/supply-orders/${ord.id}/xlsx`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .buffer(true)
+        .parse((res, cb) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => cb(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+      const expectedXlsxName = buildSupplyOrderFilename(ord.of_number, ord.supplier_name, ord.total_value, 'xlsx');
+      expect(decodeURIComponent(xlsxRes.headers['content-disposition'])).toContain(expectedXlsxName);
+
+      // Conferência interna da planilha gerada: assinador = JONATHA PEREIRA DE JESUS e total bate com a ordem
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(xlsxRes.body as unknown as Parameters<typeof wb.xlsx.load>[0]);
+      const ws = wb.worksheets[0];
+      const cellTexts: string[] = [];
+      ws.eachRow((r) => {
+        r.eachCell((c) => {
+          if (c.value !== null && c.value !== undefined) cellTexts.push(String(c.value));
+        });
+      });
+      expect(cellTexts).toContain('JONATHA PEREIRA DE JESUS');
+      expect(cellTexts.some((t) => t.toLowerCase().includes('comprascozam'))).toBe(false);
+
+      // Conferência da soma dos itens na tabela da OF (GET /supply-orders/:id)
+      const ordDetail = await request(app)
+        .get(`/api/supply-orders/${ord.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const itemsSum = ordDetail.body.items.reduce((acc: number, it: any) => acc + Number(it.total_price), 0);
+      expect(Math.round(itemsSum * 100) / 100).toBe(Number(ordDetail.body.supply_order.total_value));
     }
 
-    // 8. Confere baixa imediata de saldo nos 3 contratos
+    // 8. Conferência financeira completa nas tabelas dos 3 contratos (quantidades + valores somados)
     const c1Final = await request(app).get(`/api/contracts/${c1.body.id}`).set('Authorization', `Bearer ${adminToken}`).expect(200);
     expect(c1Final.body.items.find((i: any) => i.id === aguaSanitariaId).available_quantity).toBe(50);
     expect(c1Final.body.items.find((i: any) => i.id === desinfetanteId).available_quantity).toBe(20);
+    expect(c1Final.body.contract.total_amount).toBe(550);
+    expect(c1Final.body.contract.requested_amount).toBe(100);
+    expect(c1Final.body.contract.remaining_amount).toBe(450);
+    expect(c1Final.body.items.reduce((a: number, it: any) => a + it.executed_amount, 0)).toBe(100);
+    expect(c1Final.body.items.reduce((a: number, it: any) => a + it.remaining_amount, 0)).toBe(450);
 
     const c2Final = await request(app).get(`/api/contracts/${c2.body.id}`).set('Authorization', `Bearer ${adminToken}`).expect(200);
     expect(c2Final.body.items.find((i: any) => i.id === cafeId).available_quantity).toBe(16);
     expect(c2Final.body.items.find((i: any) => i.id === mexedorId).available_quantity).toBe(12);
+    expect(c2Final.body.contract.total_amount).toBe(520);
+    expect(c2Final.body.contract.requested_amount).toBe(104);
+    expect(c2Final.body.contract.remaining_amount).toBe(416);
+    expect(c2Final.body.items.reduce((a: number, it: any) => a + it.executed_amount, 0)).toBe(104);
+    expect(c2Final.body.items.reduce((a: number, it: any) => a + it.remaining_amount, 0)).toBe(416);
 
     const c3Final = await request(app).get(`/api/contracts/${c3.body.id}`).set('Authorization', `Bearer ${adminToken}`).expect(200);
     expect(c3Final.body.items[0].available_quantity).toBe(8);
+    expect(c3Final.body.contract.total_amount).toBe(300);
+    expect(c3Final.body.contract.requested_amount).toBe(60);
+    expect(c3Final.body.contract.remaining_amount).toBe(240);
+    expect(c3Final.body.items[0].executed_amount).toBe(60);
+    expect(c3Final.body.items[0].remaining_amount).toBe(240);
+
+    // 9. Conferência global da listagem de contratos: requested + remaining === total em todos os contratos
+    const allContractsRes = await request(app).get('/api/contracts').set('Authorization', `Bearer ${adminToken}`).expect(200);
+    for (const ct of allContractsRes.body) {
+      const sumCheck = Math.round((Number(ct.requested_amount) + Number(ct.remaining_amount)) * 100) / 100;
+      expect(sumCheck).toBe(Math.round(Number(ct.total_amount) * 100) / 100);
+    }
   });
 });

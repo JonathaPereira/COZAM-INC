@@ -276,7 +276,7 @@ export function LancamentoMultiploPage() {
       for (let i = 0; i < createdOrders.length; i++) {
         const ord = createdOrders[i];
         setDownloadingBatchProgress(`Baixando ${i + 1} de ${createdOrders.length} (${ord.of_number})...`);
-        await downloadSupplyOrderPdf(ord.id, ord.of_number);
+        await downloadSupplyOrderPdf(ord.id, ord.of_number, ord.supplier_name, ord.total_value);
         if (i < createdOrders.length - 1) {
           await new Promise((resolve) => setTimeout(resolve, 450));
         }
@@ -392,14 +392,14 @@ export function LancamentoMultiploPage() {
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={() => downloadSupplyOrderPdf(ord.id, ord.of_number)}
+                    onClick={() => downloadSupplyOrderPdf(ord.id, ord.of_number, ord.supplier_name, ord.total_value)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" /> PDF
                   </button>
                   <button
                     type="button"
-                    onClick={() => downloadSupplyOrderXlsx(ord.id, ord.of_number)}
+                    onClick={() => downloadSupplyOrderXlsx(ord.id, ord.of_number, ord.supplier_name, ord.total_value)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5" /> XLSX

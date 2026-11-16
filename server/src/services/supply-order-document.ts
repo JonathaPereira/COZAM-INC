@@ -405,7 +405,7 @@ export async function generateSupplyOrderWorkbook(data: SupplyOrderDocData): Pro
   // Nome do Supervisor
   ws.mergeCells(`A${curRow}:F${curRow}`);
   const rName = ws.getCell(`A${curRow}`);
-  rName.value = 'JONATHA PEREIRA DE JESUS';
+  rName.value = (data.issuer_name || 'JONATHA PEREIRA DE JESUS').toUpperCase();
   rName.font = { name: 'Calibri', size: 11, bold: true };
   rName.alignment = { horizontal: 'center', vertical: 'middle' };
   ws.getRow(curRow).height = 18.0;
@@ -415,7 +415,7 @@ export async function generateSupplyOrderWorkbook(data: SupplyOrderDocData): Pro
   // Cargo do Supervisor
   ws.mergeCells(`A${curRow}:F${curRow}`);
   const rRole = ws.getCell(`A${curRow}`);
-  rRole.value = 'SUPERVISOR DE COMPRAS';
+  rRole.value = (data.issuer_role || 'SUPERVISOR DE COMPRAS').toUpperCase();
   rRole.font = { name: 'Calibri', size: 11, bold: true };
   rRole.alignment = { horizontal: 'center', vertical: 'middle' };
   ws.getRow(curRow).height = 18.0;
