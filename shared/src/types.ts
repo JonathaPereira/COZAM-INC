@@ -21,6 +21,8 @@ export interface Profile {
   role: UserRole;
   extra_permissions: string[];
   active: boolean;
+  job_title?: string | null;
+  signature_data_url?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -103,6 +105,8 @@ export interface SupplyOrderRow {
   signed_document_id?: string | null;
   signed_at?: string | null;
   signed_by_name?: string | null;
+  signed_electronically?: boolean;
+  electronic_signature_hash?: string | null;
   status?: SupplyOrderStatus;
   items_count?: number;
 }

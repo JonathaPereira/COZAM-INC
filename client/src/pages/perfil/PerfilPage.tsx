@@ -1,19 +1,144 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { User, KeyRound, Shield, CheckCircle2 } from 'lucide-react';
+import { KeyRound, CheckCircle2, PenTool, UploadCloud, Trash2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext.js';
 import { getSupabase } from '../../lib/supabase.js';
+import { api, getErrorMessage } from '../../lib/api.js';
 import { ROLE_LABELS, PERMISSION_LABELS } from '@cozam/shared';
 import { Card } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
 
 export function PerfilPage() {
-  const { profile, permissions } = useAuth();
+  const { profile, permissions, refreshProfile } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
+
+  // Assinatura digital
+  const [jobTitle, setJobTitle] = useState(profile?.job_title || 'SUPERVISOR DE COMPRAS — COZAM');
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(profile?.signature_data_url || null);
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [hasDrawn, setHasDrawn] = useState(false);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isDrawingRef = useRef(false);
+
+  useEffect(() => {
+    if (profile) {
+      setJobTitle(profile.job_title || 'SUPERVISOR DE COMPRAS — COZAM');
+      setSignatureDataUrl(profile.signature_data_url || null);
+    }
+  }, [profile]);
+
+  const getCanvasPoint = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    isDrawingRef.current = true;
+    canvas.setPointerCapture(e.pointerId);
+    const { x, y } = getCanvasPoint(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#0f172a';
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = getCanvasPoint(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    setHasDrawn(true);
+  };
+
+  const handlePointerUp = () => {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+    const canvas = canvasRef.current;
+    if (canvas && hasDrawn) {
+      setSignatureDataUrl(canvas.toDataURL('image/png'));
+    }
+  };
+
+  const handleClearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    setHasDrawn(false);
+    setSignatureDataUrl(null);
+  };
+
+  const handleSignatureImageUpload = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione uma imagem PNG ou JPG da sua assinatura.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 480;
+        const maxH = 160;
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const off = document.createElement('canvas');
+        off.width = w;
+        off.height = h;
+        const ctx = off.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          setSignatureDataUrl(off.toDataURL('image/png'));
+          toast.success('Imagem da assinatura carregada. Clique em "Salvar Minha Assinatura" para aplicar.');
+        }
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveSignature = async (clear = false) => {
+    setSavingSignature(true);
+    try {
+      const sigToSave = clear ? null : signatureDataUrl;
+      await api.put('/me/signature', {
+        job_title: jobTitle.trim() || null,
+        signature_data_url: sigToSave,
+      });
+      if (clear) {
+        handleClearCanvas();
+      }
+      await refreshProfile();
+      toast.success(clear ? 'Assinatura removida do perfil.' : 'Assinatura salva! Ela já será usada automaticamente nas próximas OFs emitidas.');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setSavingSignature(false);
+    }
+  };
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +177,7 @@ export function PerfilPage() {
           Meu Perfil Funcional
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Identificação do usuário autenticado e segurança de acesso
+          Identificação do usuário autenticado, assinatura eletrônica e segurança de acesso
         </p>
       </div>
 
@@ -91,6 +216,123 @@ export function PerfilPage() {
                 <span>{PERMISSION_LABELS[p] || p}</span>
               </div>
             ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Assinatura Digital para Emissões */}
+      <Card title="Assinatura Eletrônica para Ordens de Fornecimento">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Configure sua assinatura para que as Ordens de Fornecimento (incluindo o Lançamento Múltiplo) já sejam emitidas e baixadas em PDF assinadas automaticamente.
+          </p>
+
+          <Input
+            label="Cargo / Subtítulo na Assinatura do PDF"
+            value={jobTitle}
+            onChange={(e) => setJobTitle(e.target.value)}
+            placeholder="Ex: SUPERVISOR DE COMPRAS — COZAM"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Quadro para desenhar */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <PenTool className="w-3.5 h-3.5 text-indigo-500" /> Desenhar Assinatura Aqui
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearCanvas}
+                  className="text-2xs text-slate-500 hover:text-rose-600 font-medium cursor-pointer"
+                >
+                  Limpar quadro
+                </button>
+              </div>
+              <canvas
+                ref={canvasRef}
+                width={420}
+                height={140}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerUp}
+                className="w-full h-36 bg-white border-2 border-dashed border-slate-300 rounded-xl cursor-crosshair touch-none"
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleSignatureImageUpload(f);
+                    e.target.value = '';
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={<UploadCloud className="w-3.5 h-3.5" />}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Ou Enviar Imagem (PNG/JPG)
+                </Button>
+              </div>
+            </div>
+
+            {/* Pré-visualização no carimbo do documento */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                Prévia no Rodapé do PDF
+              </span>
+              <div className="h-36 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4 flex flex-col items-center justify-end text-center">
+                {signatureDataUrl ? (
+                  <img
+                    src={signatureDataUrl}
+                    alt="Assinatura cadastrada"
+                    className="max-h-16 max-w-[200px] object-contain mb-1 bg-white/90 px-2 rounded"
+                  />
+                ) : (
+                  <span className="text-2xs text-slate-400 italic mb-3">
+                    (Apenas assinatura eletrônica nominal / sem rubrica gráfica)
+                  </span>
+                )}
+                <div className="w-52 border-t border-slate-400 pt-1">
+                  <p className="text-2xs font-bold text-slate-800 dark:text-slate-200 uppercase truncate">
+                    {profile.full_name}
+                  </p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                    {jobTitle || 'SUPERVISOR DE COMPRAS — COZAM'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            <Button
+              type="button"
+              variant="primary"
+              loading={savingSignature}
+              icon={<Save className="w-4 h-4" />}
+              onClick={() => handleSaveSignature(false)}
+            >
+              Salvar Minha Assinatura
+            </Button>
+            {signatureDataUrl && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={savingSignature}
+                icon={<Trash2 className="w-4 h-4 text-rose-500" />}
+                onClick={() => handleSaveSignature(true)}
+              >
+                Remover Imagem
+              </Button>
+            )}
           </div>
         </div>
       </Card>

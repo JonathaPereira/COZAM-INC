@@ -95,7 +95,12 @@ export function OrdensList() {
         </div>
 
         {canWrite && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/ordens/multiplo">
+              <Button variant="secondary" icon={<Layers className="w-4 h-4" />}>
+                Lançamento Múltiplo (Mix)
+              </Button>
+            </Link>
             <Link to="/lancamento">
               <Button variant="primary" icon={<Plus className="w-4 h-4" />}>
                 Nova Ordem de Fornecimento / Lançamento

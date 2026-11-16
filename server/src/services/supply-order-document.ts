@@ -45,7 +45,10 @@ export interface SupplyOrderDocData {
   issuer_role?: string;
   // Signature
   is_signed?: boolean;
-  signed_at?: string | Date;
+  signed_electronically?: boolean;
+  signed_at?: string | Date | null;
+  signature_image_data_url?: string | null;
+  electronic_signature_hash?: string | null;
   // Items
   items: SupplyOrderItemDoc[];
   total_amount: number;
@@ -497,11 +500,25 @@ export async function generateSupplyOrderPdf(data: SupplyOrderDocData): Promise<
   const logoBytes = getCozamLogoBuffer();
   const pdfLogo = await pdfDoc.embedPng(logoBytes);
 
-  const shouldDrawSignature = data.is_signed !== false;
+  const shouldDrawSignature = data.signed_electronically || data.is_signed !== false;
   let pdfSig: any = null;
   if (shouldDrawSignature) {
-    const sigBytes = getJonathaSignatureBuffer();
-    pdfSig = await pdfDoc.embedPng(sigBytes);
+    if (data.signature_image_data_url) {
+      try {
+        const m = data.signature_image_data_url.match(/^data:image\/(png|jpe?g);base64,(.+)$/i);
+        if (m) {
+          const imgType = m[1].toLowerCase();
+          const imgBytes = Buffer.from(m[2], 'base64');
+          pdfSig = imgType === 'png' ? await pdfDoc.embedPng(imgBytes) : await pdfDoc.embedJpg(imgBytes);
+        }
+      } catch {
+        pdfSig = null;
+      }
+    }
+    if (!pdfSig) {
+      const sigBytes = getJonathaSignatureBuffer();
+      pdfSig = await pdfDoc.embedPng(sigBytes);
+    }
   }
 
   // A4 dimensions: 595.28 x 841.89 points
@@ -859,8 +876,11 @@ export async function generateSupplyOrderPdf(data: SupplyOrderDocData): Promise<
 
   // Draw signature if order is signed/confirmed
   if (pdfSig) {
-    const sH = 55;
-    const sW = (pdfSig.width / pdfSig.height) * sH;
+    const maxW = contentWidth - 40;
+    const maxH = 55;
+    const scale = Math.min(maxW / pdfSig.width, maxH / pdfSig.height);
+    const sW = pdfSig.width * scale;
+    const sH = pdfSig.height * scale;
     page.drawImage(pdfSig, {
       x: marginX + (contentWidth - sW) / 2,
       y: curY + (sigH - sH) / 2,
@@ -875,12 +895,28 @@ export async function generateSupplyOrderPdf(data: SupplyOrderDocData): Promise<
   const nameH = 16;
   curY -= nameH;
   drawBox(marginX, curY, contentWidth, nameH);
-  drawCenteredInBox('JONATHA PEREIRA DE JESUS', marginX, curY, contentWidth, nameH, fontBold, 9);
+  drawCenteredInBox(
+    (data.issuer_name || 'JONATHA PEREIRA DE JESUS').toUpperCase(),
+    marginX,
+    curY,
+    contentWidth,
+    nameH,
+    fontBold,
+    9
+  );
 
   const roleH = 16;
   curY -= roleH;
   drawBox(marginX, curY, contentWidth, roleH);
-  drawCenteredInBox('SUPERVISOR DE COMPRAS', marginX, curY, contentWidth, roleH, fontBold, 9);
+  drawCenteredInBox(
+    (data.issuer_role || 'SUPERVISOR DE COMPRAS').toUpperCase(),
+    marginX,
+    curY,
+    contentWidth,
+    roleH,
+    fontBold,
+    9
+  );
 
   // ==========================================
   // LOWER BIPARTITE BLOCK (Height: 52 pt)

@@ -11,6 +11,8 @@ export interface AuthUser extends ProfileLike {
   role: UserRole;
   extra_permissions: string[];
   active: boolean;
+  job_title?: string | null;
+  signature_data_url?: string | null;
 }
 
 declare global {
@@ -95,7 +97,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     const pool = getPool();
     const result = await pool.query(
-      `select id, full_name, email, role, extra_permissions, active
+      `select id, full_name, email, role, extra_permissions, active, job_title, signature_data_url
          from public.profiles
         where id = $1`,
       [userId]
@@ -123,6 +125,8 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       role: row.role as UserRole,
       extra_permissions: row.extra_permissions || [],
       active: row.active,
+      job_title: row.job_title ?? null,
+      signature_data_url: row.signature_data_url ?? null,
     };
     next();
   } catch (err) {

@@ -18,6 +18,7 @@ import { ProcessosList } from './pages/processos/ProcessosList.js';
 import { ProcessoDetail } from './pages/processos/ProcessoDetail.js';
 import { OrdensList, OrdemDetail } from './pages/ordens/OrdensList.js';
 import { NovaOrdemWizard } from './pages/ordens/NovaOrdemWizard.js';
+import { LancamentoMultiploPage } from './pages/ordens/LancamentoMultiploPage.js';
 import { ContratosListPage } from './pages/contratos/ContratosListPage.js';
 import { ContratoDetailPage } from './pages/contratos/ContratoDetailPage.js';
 import { LicitacoesPage } from './pages/licitacoes/LicitacoesPage.js';
@@ -149,6 +150,15 @@ export function App() {
                 element={
                   <RequirePermission permission="supply_orders.write">
                     <NovaOrdemWizard />
+                  </RequirePermission>
+                }
+              />
+
+              <Route
+                path="ordens/multiplo"
+                element={
+                  <RequirePermission permission="supply_orders.write">
+                    <LancamentoMultiploPage />
                   </RequirePermission>
                 }
               />

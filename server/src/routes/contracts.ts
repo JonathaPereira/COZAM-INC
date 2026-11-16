@@ -150,6 +150,96 @@ contractsRouter.get('/contracts', authenticate, requirePermission('contracts.vie
   }
 });
 
+// Pesquisa global de itens em contratos vigentes (para Lançamento Múltiplo de OFs)
+contractsRouter.get('/contracts/items/search', authenticate, requirePermission('contracts.view'), async (req, res, next) => {
+  try {
+    const pool = getPool();
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const onlyAvailable = req.query.only_available !== '0' && req.query.only_available !== 'false';
+    const supplierId = typeof req.query.supplier_id === 'string' ? req.query.supplier_id.trim() : '';
+    const category = typeof req.query.category === 'string' ? req.query.category.trim() : '';
+    const limit = Math.min(150, Math.max(1, Number(req.query.limit || 60)));
+
+    const where: string[] = [
+      `vc.computed_status IN ('ATIVO', 'PROXIMO_VENCIMENTO')`,
+      `vci.active = true`,
+      `vc.end_date >= CURRENT_DATE`,
+    ];
+    const params: unknown[] = [];
+
+    if (onlyAvailable) {
+      where.push(`vci.available_quantity > 0`);
+    }
+    if (supplierId) {
+      params.push(supplierId);
+      where.push(`vc.supplier_id = $${params.length}`);
+    }
+    if (category) {
+      params.push(category);
+      where.push(`vci.category = $${params.length}`);
+    }
+    if (q) {
+      const terms = q.split(/\s+/).filter(Boolean);
+      for (const term of terms) {
+        params.push(`%${term}%`);
+        where.push(
+          `(vci.description ilike $${params.length} or vci.item_code ilike $${params.length} or vc.contract_number ilike $${params.length} or vc.supplier_name ilike $${params.length} or vc.object ilike $${params.length})`
+        );
+      }
+    }
+
+    params.push(limit);
+
+    const query = `
+      SELECT vci.id,
+             vci.contract_id,
+             vci.item_code,
+             vci.item_group,
+             vci.description,
+             vci.category,
+             vci.unit,
+             vci.original_quantity,
+             vci.current_quantity,
+             vci.reserved_quantity,
+             vci.requested_quantity,
+             vci.available_quantity,
+             vci.unit_price,
+             vci.total_price,
+             vc.contract_number,
+             vc.year AS contract_year,
+             vc.object AS contract_object,
+             vc.start_date AS contract_start_date,
+             vc.end_date AS contract_end_date,
+             vc.supplier_id,
+             vc.supplier_name,
+             vc.supplier_cnpj,
+             vc.computed_status AS contract_status
+        FROM public.v_contract_items vci
+        JOIN public.v_contracts vc ON vc.id = vci.contract_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY vci.description ASC, vc.end_date ASC, vci.item_code ASC
+       LIMIT $${params.length}
+    `;
+
+    const result = await pool.query(query, params);
+    res.json(
+      result.rows.map((r) => ({
+        ...r,
+        contract_year: Number(r.contract_year),
+        original_quantity: Number(r.original_quantity),
+        current_quantity: Number(r.current_quantity),
+        reserved_quantity: Number(r.reserved_quantity || 0),
+        requested_quantity: Number(r.requested_quantity || 0),
+        available_quantity: Number(r.available_quantity || 0),
+        unit_price: Number(r.unit_price),
+        total_price: Number(r.total_price),
+      }))
+    );
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Detalhes de um contrato com itens e movimentações
 contractsRouter.get('/contracts/:id', authenticate, requirePermission('contracts.view'), async (req, res, next) => {
   try {
@@ -508,6 +598,272 @@ contractsRouter.post('/contracts/:id/amendments', authenticate, requirePermissio
     );
 
     res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Adicionar item manualmente a um contrato existente (para correção de tabelas incompletas)
+contractsRouter.post('/contracts/:id/items', authenticate, requirePermission('contracts.write'), async (req, res, next) => {
+  try {
+    const { id: contractId } = req.params;
+    const itemInput = contractItemSchema.extend({
+      total_price: z.coerce.number().positive().optional(),
+      recalculate_contract_total: z.boolean().optional().default(true),
+    }).parse(req.body);
+
+    const lineTotal =
+      itemInput.total_price ??
+      Math.round(Number(itemInput.original_quantity) * Number(itemInput.unit_price) * 100) / 100;
+
+    const result = await runInTransaction(
+      { actorId: req.user!.id, reason: 'Inclusão manual de item no contrato', requestId: req.requestId },
+      async (client) => {
+        const contractRes = await client.query('SELECT id FROM public.contracts WHERE id = $1', [contractId]);
+        if ((contractRes.rowCount ?? 0) === 0) {
+          throw new AppError('Contrato não encontrado.', { code: 'NAO_ENCONTRADO', status: 404 });
+        }
+
+        const dupCheck = await client.query(
+          'SELECT id FROM public.contract_items WHERE contract_id = $1 AND upper(trim(item_code)) = upper(trim($2))',
+          [contractId, itemInput.item_code]
+        );
+        if ((dupCheck.rowCount ?? 0) > 0) {
+          throw new AppError(`Já existe um item com o código "${itemInput.item_code}" neste contrato.`, {
+            code: 'ITEM_DUPLICADO',
+            status: 409,
+          });
+        }
+
+        const ins = await client.query(
+          `INSERT INTO public.contract_items
+           (contract_id, item_code, item_group, description, category, unit, original_quantity, current_quantity, unit_price, total_price)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           RETURNING *`,
+          [
+            contractId,
+            itemInput.item_code,
+            itemInput.item_group || null,
+            itemInput.description,
+            itemInput.category,
+            itemInput.unit,
+            itemInput.original_quantity,
+            itemInput.original_quantity,
+            itemInput.unit_price,
+            lineTotal,
+          ]
+        );
+
+        if (itemInput.recalculate_contract_total) {
+          await client.query(
+            'UPDATE public.contracts SET total_amount = total_amount + $1, updated_at = now() WHERE id = $2',
+            [lineTotal, contractId]
+          );
+        }
+
+        await client.query(
+          `INSERT INTO public.audit_logs (actor_id, actor_name, actor_role, action, entity_type, entity_id, summary)
+           VALUES ($1, $2, $3, 'ITEM_CONTRATO_ADICIONADO', 'contract_items', $4, $5)`,
+          [
+            req.user!.id,
+            req.user!.full_name || 'Usuário',
+            req.user!.role,
+            ins.rows[0].id,
+            `Inclusão manual do item ${itemInput.item_code} no contrato`,
+          ]
+        );
+
+        return ins.rows[0];
+      }
+    );
+
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Correção manual de um item contratual (quando importação ou cadastro ficou fora de esquadro)
+contractsRouter.patch('/contracts/:id/items/:itemId', authenticate, requirePermission('contracts.write'), async (req, res, next) => {
+  try {
+    const { id: contractId, itemId } = req.params;
+    const patchSchema = z.object({
+      item_code: z.string().trim().min(1).optional(),
+      description: z.string().trim().min(1).optional(),
+      category: contractItemSchema.shape.category.optional(),
+      unit: z.string().trim().min(1).optional(),
+      original_quantity: z.coerce.number().positive('Quantidade deve ser maior que zero.').optional(),
+      unit_price: z.coerce.number().positive('Valor unitário deve ser maior que zero.').optional(),
+      recalculate_contract_total: z.boolean().optional().default(true),
+    });
+    const data = patchSchema.parse(req.body);
+
+    const result = await runInTransaction(
+      { actorId: req.user!.id, reason: 'Correção manual de item contratual', requestId: req.requestId },
+      async (client) => {
+        const curRes = await client.query(
+          `SELECT ci.*,
+                  vci.reserved_quantity,
+                  vci.requested_quantity
+             FROM public.contract_items ci
+             JOIN public.v_contract_items vci ON vci.id = ci.id
+            WHERE ci.id = $1 AND ci.contract_id = $2
+            FOR UPDATE OF ci`,
+          [itemId, contractId]
+        );
+
+        if ((curRes.rowCount ?? 0) === 0) {
+          throw new AppError('Item contratual não encontrado neste contrato.', {
+            code: 'NAO_ENCONTRADO',
+            status: 404,
+          });
+        }
+
+        const cur = curRes.rows[0];
+        const nextCode = data.item_code ?? cur.item_code;
+        if (nextCode !== cur.item_code) {
+          const dupCheck = await client.query(
+            'SELECT id FROM public.contract_items WHERE contract_id = $1 AND upper(trim(item_code)) = upper(trim($2)) AND id <> $3',
+            [contractId, nextCode, itemId]
+          );
+          if ((dupCheck.rowCount ?? 0) > 0) {
+            throw new AppError(`Já existe outro item com o código "${nextCode}" neste contrato.`, {
+              code: 'ITEM_DUPLICADO',
+              status: 409,
+            });
+          }
+        }
+
+        const oldOrigQty = Number(cur.original_quantity);
+        const oldCurrQty = Number(cur.current_quantity);
+        const committedQty = Number(cur.reserved_quantity || 0) + Number(cur.requested_quantity || 0);
+
+        const nextOrigQty = data.original_quantity ?? oldOrigQty;
+        const deltaQty = nextOrigQty - oldOrigQty;
+        const nextCurrQty = Math.round((oldCurrQty + deltaQty) * 1000) / 1000;
+
+        if (nextCurrQty < committedQty) {
+          throw new AppError(
+            `Não é possível reduzir a quantidade para ${nextOrigQty}: já existem ${committedQty} ${cur.unit} reservados/solicitados em Ordens de Fornecimento.`,
+            { code: 'QUANTIDADE_MENOR_QUE_CONSUMIDO', status: 422 }
+          );
+        }
+
+        const nextUnitPrice = data.unit_price ?? Number(cur.unit_price);
+        const oldTotalPrice = Number(cur.total_price);
+        const nextTotalPrice = Math.round(nextOrigQty * nextUnitPrice * 100) / 100;
+        const deltaAmount = Math.round((nextTotalPrice - oldTotalPrice) * 100) / 100;
+
+        const upd = await client.query(
+          `UPDATE public.contract_items
+              SET item_code = $1,
+                  description = $2,
+                  category = $3,
+                  unit = $4,
+                  original_quantity = $5,
+                  current_quantity = $6,
+                  unit_price = $7,
+                  total_price = $8,
+                  updated_at = now()
+            WHERE id = $9
+            RETURNING *`,
+          [
+            nextCode,
+            data.description ?? cur.description,
+            data.category ?? cur.category,
+            data.unit ?? cur.unit,
+            nextOrigQty,
+            nextCurrQty,
+            nextUnitPrice,
+            nextTotalPrice,
+            itemId,
+          ]
+        );
+
+        if (data.recalculate_contract_total && deltaAmount !== 0) {
+          await client.query(
+            'UPDATE public.contracts SET total_amount = GREATEST(0, total_amount + $1), updated_at = now() WHERE id = $2',
+            [deltaAmount, contractId]
+          );
+        }
+
+        await client.query(
+          `INSERT INTO public.audit_logs (actor_id, actor_name, actor_role, action, entity_type, entity_id, summary, old_data, new_data)
+           VALUES ($1, $2, $3, 'ITEM_CONTRATO_CORRIGIDO', 'contract_items', $4, $5, $6, $7)`,
+          [
+            req.user!.id,
+            req.user!.full_name || 'Usuário',
+            req.user!.role,
+            itemId,
+            `Correção manual do item ${nextCode} (${cur.description.slice(0, 50)})`,
+            JSON.stringify(cur),
+            JSON.stringify(upd.rows[0]),
+          ]
+        );
+
+        return upd.rows[0];
+      }
+    );
+
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Remoção manual de item contratual (somente se não possuir nenhuma OF ou movimentação vinculada)
+contractsRouter.delete('/contracts/:id/items/:itemId', authenticate, requirePermission('contracts.write'), async (req, res, next) => {
+  try {
+    const { id: contractId, itemId } = req.params;
+
+    await runInTransaction(
+      { actorId: req.user!.id, reason: 'Exclusão manual de item contratual sem movimentações', requestId: req.requestId },
+      async (client) => {
+        const curRes = await client.query(
+          'SELECT * FROM public.contract_items WHERE id = $1 AND contract_id = $2 FOR UPDATE',
+          [itemId, contractId]
+        );
+        if ((curRes.rowCount ?? 0) === 0) {
+          throw new AppError('Item contratual não encontrado neste contrato.', { code: 'NAO_ENCONTRADO', status: 404 });
+        }
+
+        const usageCheck = await client.query(
+          `SELECT 1 FROM public.supply_order_items WHERE contract_item_id = $1
+           UNION ALL
+           SELECT 1 FROM public.contract_item_movements WHERE contract_item_id = $1
+           LIMIT 1`,
+          [itemId]
+        );
+        if ((usageCheck.rowCount ?? 0) > 0) {
+          throw new AppError('Não é possível excluir este item pois já existem Ordens de Fornecimento ou movimentações vinculadas a ele.', {
+            code: 'ITEM_EM_USO',
+            status: 409,
+          });
+        }
+
+        const item = curRes.rows[0];
+        await client.query('DELETE FROM public.contract_items WHERE id = $1', [itemId]);
+        await client.query(
+          'UPDATE public.contracts SET total_amount = GREATEST(0, total_amount - $1), updated_at = now() WHERE id = $2',
+          [Number(item.total_price || 0), contractId]
+        );
+
+        await client.query(
+          `INSERT INTO public.audit_logs (actor_id, actor_name, actor_role, action, entity_type, entity_id, summary, old_data)
+           VALUES ($1, $2, $3, 'ITEM_CONTRATO_REMOVIDO', 'contract_items', $4, $5, $6)`,
+          [
+            req.user!.id,
+            req.user!.full_name || 'Usuário',
+            req.user!.role,
+            itemId,
+            `Exclusão manual do item ${item.item_code} do contrato`,
+            JSON.stringify(item),
+          ]
+        );
+      }
+    );
+
+    res.status(204).send();
   } catch (err) {
     next(err);
   }

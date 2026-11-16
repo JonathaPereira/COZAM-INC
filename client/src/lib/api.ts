@@ -100,6 +100,14 @@ export const api = {
     });
   },
 
+  put<T>(path: string, body?: any): Promise<T> {
+    return request<T>(path, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  },
+
   postMultipart<T>(path: string, formData: FormData): Promise<T> {
     return request<T>(path, {
       method: 'POST',

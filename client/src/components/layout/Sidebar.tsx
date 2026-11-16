@@ -19,6 +19,7 @@ import {
   ScrollText,
   Gavel,
   Landmark,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext.js';
 import { BRAND } from '../../config/brand.js';
@@ -58,6 +59,7 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
       items: [
         { to: '/contratos', label: 'Contratos & Licitações', icon: <ScrollText className="w-4 h-4" />, perm: 'contracts.view' },
         { to: '/ordens', label: 'Ordens de Fornecimento', icon: <FileText className="w-4 h-4" />, perm: 'processes.view' },
+        { to: '/ordens/multiplo', label: 'Lançamento Múltiplo (Mix)', icon: <Layers className="w-4 h-4" />, perm: 'supply_orders.write' },
         { to: '/processos', label: 'Processos Adm.', icon: <FolderKanban className="w-4 h-4" />, perm: 'processes.view' },
         { to: '/notas', label: 'Notas Fiscais', icon: <Receipt className="w-4 h-4" />, perm: 'invoices.view_drafts' },
       ],

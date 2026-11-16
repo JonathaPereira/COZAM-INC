@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../../lib/api.js';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, getErrorMessage } from '../../lib/api.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 import {
   FileSpreadsheet,
@@ -17,16 +17,36 @@ import {
   Layers,
   FilePlus2,
   Download,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { NovoAditivoModal } from '../../components/contracts/NovoAditivoModal.js';
+import { EditarItemContratoModal } from '../../components/contracts/EditarItemContratoModal.js';
 
 export function ContratoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { can } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'itens' | 'ordens' | 'aditivos' | 'movimentacoes'>('itens');
   const [isAditivoModalOpen, setIsAditivoModalOpen] = useState(false);
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+
+  const deleteItemMutation = useMutation({
+    mutationFn: (itemId: string) => api.delete(`/contracts/${id}/items/${itemId}`),
+    onSuccess: () => {
+      toast.success('Item removido do contrato.');
+      queryClient.invalidateQueries({ queryKey: ['contract-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      queryClient.invalidateQueries({ queryKey: ['contract-items-search'] });
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err));
+    },
+  });
 
   const { data, isLoading } = useQuery<any>({
     queryKey: ['contract-detail', id],
@@ -224,6 +244,23 @@ export function ContratoDetailPage() {
       {/* Conteúdo da Aba 1: Itens Contratados e Saldos */}
       {activeTab === 'itens' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-xs">
+          {can('contracts.write') && (
+            <div className="px-5 py-3 bg-slate-50/70 dark:bg-slate-900/30 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Algum item ficou fora de esquadro na importação? Use o ícone de edição na linha ou adicione um item manualmente.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingItem(null);
+                  setIsItemModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Adicionar Item Manualmente
+              </button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
               <thead className="bg-slate-50 dark:bg-slate-900/50 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
@@ -239,35 +276,77 @@ export function ContratoDetailPage() {
                   </th>
                   <th className="px-5 py-3.5 w-28 text-right">Vlr Unitário</th>
                   <th className="px-5 py-3.5 w-32 text-right">Vlr Restante</th>
+                  {can('contracts.write') && (
+                    <th className="px-4 py-3.5 w-24 text-center">Ações</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {items.map((it: any) => (
-                  <tr key={it.id} className="hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
-                    <td className="px-5 py-3.5 font-mono text-xs text-center">{it.item_code}</td>
-                    <td className="px-5 py-3.5">
-                      <div className="font-medium text-slate-900 dark:text-white">{it.description}</div>
-                      <div className="text-2xs text-slate-400 mt-0.5">{it.category}</div>
-                    </td>
-                    <td className="px-5 py-3.5 text-center text-xs text-slate-500">{it.unit}</td>
-                    <td className="px-5 py-3.5 text-center font-semibold text-slate-700 dark:text-slate-300">
-                      {it.original_quantity}
-                    </td>
-                    <td className="px-5 py-3.5 text-center font-medium text-amber-600 dark:text-amber-400">
-                      {it.reserved_quantity || 0}
-                    </td>
-                    <td className="px-5 py-3.5 text-center font-medium text-indigo-600 dark:text-indigo-400">
-                      {it.requested_quantity || 0}
-                    </td>
-                    <td className="px-5 py-3.5 text-center font-bold text-emerald-600 dark:text-emerald-400">
-                      {it.available_quantity}
-                    </td>
-                    <td className="px-5 py-3.5 text-right text-xs">{formatCurrency(it.unit_price)}</td>
-                    <td className="px-5 py-3.5 text-right font-semibold text-slate-900 dark:text-white">
-                      {formatCurrency(it.remaining_amount)}
-                    </td>
-                  </tr>
-                ))}
+                {items.map((it: any) => {
+                  const hasMovements = Number(it.reserved_quantity || 0) > 0 || Number(it.requested_quantity || 0) > 0;
+                  const remainingVal =
+                    it.remaining_amount > 0
+                      ? it.remaining_amount
+                      : Math.round(Number(it.available_quantity || 0) * Number(it.unit_price || 0) * 100) / 100;
+                  return (
+                    <tr key={it.id} className="hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
+                      <td className="px-5 py-3.5 font-mono text-xs text-center">{it.item_code}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="font-medium text-slate-900 dark:text-white">{it.description}</div>
+                        <div className="text-2xs text-slate-400 mt-0.5">{it.category}</div>
+                      </td>
+                      <td className="px-5 py-3.5 text-center text-xs text-slate-500">{it.unit}</td>
+                      <td className="px-5 py-3.5 text-center font-semibold text-slate-700 dark:text-slate-300">
+                        {it.original_quantity}
+                      </td>
+                      <td className="px-5 py-3.5 text-center font-medium text-amber-600 dark:text-amber-400">
+                        {it.reserved_quantity || 0}
+                      </td>
+                      <td className="px-5 py-3.5 text-center font-medium text-indigo-600 dark:text-indigo-400">
+                        {it.requested_quantity || 0}
+                      </td>
+                      <td className="px-5 py-3.5 text-center font-bold text-emerald-600 dark:text-emerald-400">
+                        {it.available_quantity}
+                      </td>
+                      <td className="px-5 py-3.5 text-right text-xs">{formatCurrency(it.unit_price)}</td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-slate-900 dark:text-white">
+                        {formatCurrency(remainingVal)}
+                      </td>
+                      {can('contracts.write') && (
+                        <td className="px-4 py-3.5 text-center">
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingItem(it);
+                                setIsItemModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition-colors cursor-pointer"
+                              title="Corrigir item manualmente"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            {!hasMovements && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Deseja excluir o item "${it.item_code} - ${it.description}" do contrato?`)) {
+                                    deleteItemMutation.mutate(it.id);
+                                  }
+                                }}
+                                disabled={deleteItemMutation.isPending}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors cursor-pointer disabled:opacity-40"
+                                title="Excluir item sem movimentações"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -384,6 +463,18 @@ export function ContratoDetailPage() {
         contractId={contract.id}
         contractNumber={`${contract.contract_number}/${contract.year}`}
         currentEndDate={contract.end_date}
+      />
+
+      {/* Modal de Correção / Inclusão Manual de Item */}
+      <EditarItemContratoModal
+        isOpen={isItemModalOpen}
+        onClose={() => {
+          setIsItemModalOpen(false);
+          setEditingItem(null);
+        }}
+        contractId={contract.id}
+        item={editingItem}
+        nextSuggestedCode={String(items.length + 1).padStart(2, '0')}
       />
     </div>
   );

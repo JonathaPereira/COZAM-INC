@@ -34,6 +34,7 @@ const createSupplyOrderSchema = z.object({
   confirm_and_sign: z
     .preprocess((val) => val === true || val === 'true' || val === 1 || val === '1', z.boolean())
     .optional(),
+  use_electronic_signature: z.coerce.boolean().optional().default(false),
   items: z
     .preprocess((val) => {
       if (typeof val === 'string') {
@@ -50,6 +51,38 @@ const createSupplyOrderSchema = z.object({
     })))
     .optional(),
 });
+
+const batchSupplyOrdersSchema = z.object({
+  destination_id: z.string().uuid('ID do destinatário inválido.').optional().nullable(),
+  municipality: z.string().trim().optional().nullable(),
+  issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de emissão inválida.'),
+  notes: z.string().trim().optional().nullable(),
+  use_electronic_signature: z.coerce.boolean().optional().default(true),
+  items: z
+    .array(
+      z.object({
+        contract_item_id: z.string().uuid('ID do item contratual inválido.'),
+        quantity: z.coerce.number().positive('Quantidade solicitada deve ser maior que zero.'),
+      })
+    )
+    .min(1, 'Adicione pelo menos um item para emitir as Ordens de Fornecimento.'),
+});
+
+async function getNextOfSequenceNumber(client: any, year: number): Promise<number> {
+  const existingRes = await client.query(
+    `select of_number from public.supply_orders where extract(year from issue_date) = $1`,
+    [year]
+  );
+  let maxSeq = 0;
+  for (const r of existingRes.rows) {
+    const m = String(r.of_number || '').match(/OF\s*(\d+)/i);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (!Number.isNaN(n) && n > maxSeq) maxSeq = n;
+    }
+  }
+  return Math.max(maxSeq, existingRes.rowCount ?? 0) + 1;
+}
 
 const updateSupplyOrderSchema = z.object({
   process_id: z.string().uuid().optional(),
@@ -238,6 +271,160 @@ supplyOrdersRouter.get('/supply-orders/:id', authenticate, requirePermission('pr
   }
 });
 
+async function resolveOrderProcessId(
+  client: any,
+  contractId: string | null | undefined,
+  explicitProcessId: string | null | undefined,
+  actorId: string
+): Promise<string> {
+  let processId = explicitProcessId || null;
+
+  if (contractId && !processId) {
+    const cRes = await client.query('select procurement_id from public.contracts where id = $1', [contractId]);
+    if ((cRes.rowCount ?? 0) > 0 && cRes.rows[0].procurement_id) {
+      const apRes = await client.query('select id from public.administrative_processes where id = $1', [
+        cRes.rows[0].procurement_id,
+      ]);
+      if ((apRes.rowCount ?? 0) > 0) processId = cRes.rows[0].procurement_id;
+    }
+  }
+
+  if (!processId) {
+    const defaultProc = await client.query('select id from public.administrative_processes order by created_at desc limit 1');
+    if ((defaultProc.rowCount ?? 0) > 0) {
+      processId = defaultProc.rows[0].id;
+    } else {
+      const newProc = await client.query(
+        `insert into public.administrative_processes (process_number, description, created_by) values ('PROC-GERAL/2026', 'Processo Geral de Compras', $1) returning id`,
+        [actorId]
+      );
+      processId = newProc.rows[0].id;
+    }
+  }
+
+  return processId!;
+}
+
+async function createContractOrderWithItems(
+  client: any,
+  opts: {
+    processId: string;
+    contractId: string;
+    destinationId: string | null;
+    supplierId: string;
+    ofNumber: string;
+    issueDate: string;
+    notes: string | null;
+    municipality: string | null;
+    items: Array<{ contract_item_id: string; quantity: number }>;
+    useElectronicSignature: boolean;
+    actor: { id: string; full_name?: string; role: string };
+  }
+) {
+  let calculatedTotal = 0;
+  const itemRowsToInsert: Array<{
+    contract_item_id: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+  }> = [];
+
+  for (const it of opts.items) {
+    const itRes = await client.query(
+      'select unit_price from public.contract_items where id = $1 and contract_id = $2',
+      [it.contract_item_id, opts.contractId]
+    );
+    if ((itRes.rowCount ?? 0) === 0) {
+      throw new AppError('Item contratual não encontrado para este contrato.', {
+        code: 'ITEM_NAO_ENCONTRADO',
+        status: 404,
+      });
+    }
+    const unitPrice = Number(itRes.rows[0].unit_price);
+    const lineTotal = Math.round(it.quantity * unitPrice * 100) / 100;
+    calculatedTotal = Math.round((calculatedTotal + lineTotal) * 100) / 100;
+    itemRowsToInsert.push({
+      contract_item_id: it.contract_item_id,
+      quantity: it.quantity,
+      unit_price: unitPrice,
+      total_price: lineTotal,
+    });
+  }
+
+  const trackingCode = crypto.randomUUID();
+  const isElectronicallySigned = opts.useElectronicSignature;
+  const orderStatus = isElectronicallySigned ? 'CONFIRMADA' : 'AGUARDANDO_ASSINATURA';
+  const signatureHash = isElectronicallySigned
+    ? crypto
+        .createHash('sha256')
+        .update(`${trackingCode}:${opts.actor.id}:${opts.contractId}:${opts.issueDate}:${calculatedTotal}`)
+        .digest('hex')
+        .slice(0, 16)
+        .toUpperCase()
+    : null;
+
+  const ins = await client.query(
+    `insert into public.supply_orders 
+     (process_id, contract_id, destination_id, supplier_id, of_number, issue_date, total_value, notes, municipality, status, tracking_code, created_by, signed_electronically, signed_at, signed_by, electronic_signature_hash)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+     returning *`,
+    [
+      opts.processId,
+      opts.contractId,
+      opts.destinationId,
+      opts.supplierId,
+      opts.ofNumber,
+      opts.issueDate,
+      calculatedTotal,
+      opts.notes,
+      opts.municipality,
+      orderStatus,
+      trackingCode,
+      opts.actor.id,
+      isElectronicallySigned,
+      isElectronicallySigned ? new Date().toISOString() : null,
+      isElectronicallySigned ? opts.actor.id : null,
+      signatureHash,
+    ]
+  );
+  const supplyOrder = ins.rows[0];
+
+  for (const item of itemRowsToInsert) {
+    await client.query(
+      `insert into public.supply_order_items (supply_order_id, contract_item_id, quantity, unit_price, total_price)
+       values ($1, $2, $3, $4, $5)`,
+      [supplyOrder.id, item.contract_item_id, item.quantity, item.unit_price, item.total_price]
+    );
+  }
+
+  await reserveContractItems(
+    client,
+    opts.contractId,
+    opts.items,
+    supplyOrder.id,
+    opts.actor.id,
+    opts.issueDate
+  );
+
+  if (isElectronicallySigned) {
+    await confirmContractItems(client, supplyOrder.id, opts.actor.id);
+    await client.query(
+      `insert into public.audit_logs (
+        actor_id, actor_name, actor_role, action, entity_type, entity_id, summary
+      ) values ($1, $2, $3, 'OF_ASSINADA_ELETRONICAMENTE', 'supply_orders', $4, $5)`,
+      [
+        opts.actor.id,
+        opts.actor.full_name || 'Usuário',
+        opts.actor.role,
+        supplyOrder.id,
+        `Emissão com assinatura eletrônica da OF nº ${opts.ofNumber} (Hash: ${signatureHash})`,
+      ]
+    );
+  }
+
+  return supplyOrder;
+}
+
 supplyOrdersRouter.post(
   '/supply-orders',
   authenticate,
@@ -258,134 +445,66 @@ supplyOrdersRouter.post(
       const result = await runInTransaction(
         { actorId: req.user!.id, requestId: req.requestId },
         async (client) => {
-          let processId = data.process_id;
-          const contractId = data.contract_id;
-          let destinationId = data.destination_id;
+          const contractId = data.contract_id || null;
+          let destinationId = data.destination_id || null;
           if (!destinationId && data.municipality) {
             const destRes = await client.query(
               `select id from public.destinations where lower(name) = lower($1) or lower(city) = lower($1) limit 1`,
               [data.municipality.trim()]
             );
-            if (destRes.rowCount > 0) {
+            if ((destRes.rowCount ?? 0) > 0) {
               destinationId = destRes.rows[0].id;
             }
           }
-          let ofNumber = data.of_number?.trim();
-          let calculatedTotal = data.total_value ?? null;
-          const shouldSignAndConfirm = Boolean(data.confirm_and_sign);
-          const orderStatus = shouldSignAndConfirm
-            ? 'CONFIRMADA'
-            : (data.items && data.items.length > 0 ? 'AGUARDANDO_ASSINATURA' : 'CONFIRMADA');
-          const signedAt = shouldSignAndConfirm ? new Date().toISOString() : null;
-          const signedBy = shouldSignAndConfirm ? req.user!.id : null;
-
-          if (contractId) {
-            const cRes = await client.query('select procurement_id from public.contracts where id = $1', [contractId]);
-            if (cRes.rowCount > 0 && !processId) {
-              const procId = cRes.rows[0].procurement_id;
-              if (procId) {
-                const apRes = await client.query('select id from public.administrative_processes where id = $1', [procId]);
-                if (apRes.rowCount > 0) processId = procId;
-              }
-            }
-          }
-
-          if (!processId) {
-            const defaultProc = await client.query('select id from public.administrative_processes order by created_at desc limit 1');
-            if (defaultProc.rowCount > 0) {
-              processId = defaultProc.rows[0].id;
-            } else {
-              const newProc = await client.query(
-                `insert into public.administrative_processes (process_number, description, created_by) values ('PROC-GERAL/2026', 'Processo Geral de Compras', $1) returning id`,
-                [req.user!.id]
-              );
-              processId = newProc.rows[0].id;
-            }
-          }
+          const processId = await resolveOrderProcessId(client, contractId, data.process_id, req.user!.id);
+          const shouldSignAndConfirm = Boolean(data.confirm_and_sign || data.use_electronic_signature);
 
           const year = new Date(data.issue_date).getFullYear();
+          let ofNumber = data.of_number?.trim();
           if (!ofNumber || ofNumber === 'AUTO') {
-            const countRes = await client.query(
-              'select count(*)::int as total from public.supply_orders where extract(year from issue_date) = $1',
-              [year]
-            );
-            const nextSeq = (countRes.rows[0].total + 1).toString().padStart(3, '0');
-            ofNumber = `OF ${nextSeq}/${year}`;
+            const nextSeq = await getNextOfSequenceNumber(client, year);
+            ofNumber = `OF ${String(nextSeq).padStart(3, '0')}/${year}`;
           }
 
-          const trackingCode = crypto.randomUUID();
-
-          // Se itens foram enviados com contrato:
-          const itemRowsToInsert: any[] = [];
+          let supplyOrder: any;
           if (contractId && data.items && data.items.length > 0) {
-            let total = 0;
-            for (const it of data.items) {
-              const itRes = await client.query(
-                'select unit_price from public.contract_items where id = $1 and contract_id = $2',
-                [it.contract_item_id, contractId]
-              );
-              if (itRes.rowCount === 0) {
-                throw new AppError(`Item contratual não encontrado para este contrato.`, { code: 'ITEM_NAO_ENCONTRADO', status: 404 });
-              }
-              const unitPrice = Number(itRes.rows[0].unit_price);
-              const lineTotal = Math.round(it.quantity * unitPrice * 100) / 100;
-              total += lineTotal;
-              itemRowsToInsert.push({
-                contract_item_id: it.contract_item_id,
-                quantity: it.quantity,
-                unit_price: unitPrice,
-                total_price: lineTotal,
-              });
-            }
-            calculatedTotal = total;
-          }
-
-          const ins = await client.query(
-            `insert into public.supply_orders 
-             (process_id, contract_id, destination_id, supplier_id, of_number, issue_date, total_value, notes, municipality, status, tracking_code, created_by, signed_at, signed_by)
-             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-             returning *`,
-            [
+            supplyOrder = await createContractOrderWithItems(client, {
               processId,
-              contractId || null,
-              destinationId || null,
-              data.supplier_id,
-              ofNumber,
-              data.issue_date,
-              calculatedTotal,
-              data.notes || null,
-              data.municipality || null,
-              orderStatus,
-              trackingCode,
-              req.user!.id,
-              signedAt,
-              signedBy,
-            ]
-          );
-          const supplyOrder = ins.rows[0];
-
-          // Grava os itens da OF e reserva o saldo
-          if (contractId && itemRowsToInsert.length > 0) {
-            for (const item of itemRowsToInsert) {
-              await client.query(
-                `insert into public.supply_order_items (supply_order_id, contract_item_id, quantity, unit_price, total_price)
-                 values ($1, $2, $3, $4, $5)`,
-                [supplyOrder.id, item.contract_item_id, item.quantity, item.unit_price, item.total_price]
-              );
-            }
-
-            await reserveContractItems(
-              client,
               contractId,
-              data.items!,
-              supplyOrder.id,
-              req.user!.id,
-              data.issue_date
+              destinationId,
+              supplierId: data.supplier_id,
+              ofNumber,
+              issueDate: data.issue_date,
+              notes: data.notes || null,
+              municipality: data.municipality || null,
+              items: data.items,
+              useElectronicSignature: shouldSignAndConfirm,
+              actor: req.user!,
+            });
+          } else {
+            const trackingCode = crypto.randomUUID();
+            const ins = await client.query(
+              `insert into public.supply_orders 
+               (process_id, contract_id, destination_id, supplier_id, of_number, issue_date, total_value, notes, municipality, status, tracking_code, created_by, signed_at, signed_by)
+               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'CONFIRMADA', $10, $11, $12, $13)
+               returning *`,
+              [
+                processId,
+                contractId,
+                destinationId,
+                data.supplier_id,
+                ofNumber,
+                data.issue_date,
+                data.total_value ?? null,
+                data.notes || null,
+                data.municipality || null,
+                trackingCode,
+                req.user!.id,
+                shouldSignAndConfirm ? new Date().toISOString() : null,
+                shouldSignAndConfirm ? req.user!.id : null,
+              ]
             );
-
-            if (shouldSignAndConfirm) {
-              await confirmContractItems(client, supplyOrder.id, req.user!.id);
-            }
+            supplyOrder = ins.rows[0];
           }
 
           if (file) {
@@ -411,6 +530,123 @@ supplyOrdersRouter.post(
       res.status(201).json({
         ...result,
         total_value: result.total_value !== null ? Number(result.total_value) : null,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+supplyOrdersRouter.post(
+  '/supply-orders/batch',
+  authenticate,
+  requirePermission('supply_orders.write'),
+  async (req, res, next) => {
+    try {
+      const data = batchSupplyOrdersSchema.parse(req.body);
+
+      // Consolida quantidades se o mesmo item tiver sido adicionado mais de uma vez
+      const consolidatedMap = new Map<string, number>();
+      for (const it of data.items) {
+        consolidatedMap.set(
+          it.contract_item_id,
+          Math.round(((consolidatedMap.get(it.contract_item_id) || 0) + Number(it.quantity)) * 1000) / 1000
+        );
+      }
+
+      const itemIds = Array.from(consolidatedMap.keys());
+
+      const createdOrders = await runInTransaction(
+        { actorId: req.user!.id, reason: 'Emissão múltipla de OFs por agrupamento automático de contratos', requestId: req.requestId },
+        async (client) => {
+          const itemRowsRes = await client.query(
+            `SELECT ci.id AS contract_item_id, ci.contract_id, ci.item_code, ci.description, ci.unit, ci.unit_price,
+                    c.contract_number, c.year AS contract_year, c.supplier_id,
+                    s.name AS supplier_name
+               FROM public.contract_items ci
+               JOIN public.contracts c ON c.id = ci.contract_id
+               JOIN public.suppliers s ON s.id = c.supplier_id
+              WHERE ci.id = ANY($1::uuid[])`,
+            [itemIds]
+          );
+
+          if ((itemRowsRes.rowCount ?? 0) !== itemIds.length) {
+            throw new AppError('Um ou mais itens selecionados não foram encontrados no cadastro de contratos.', {
+              code: 'ITEM_NAO_ENCONTRADO',
+              status: 404,
+            });
+          }
+
+          const byContract = new Map<
+            string,
+            {
+              contract_id: string;
+              contract_number: string;
+              contract_year: number;
+              supplier_id: string;
+              supplier_name: string;
+              items: Array<{ contract_item_id: string; quantity: number }>;
+            }
+          >();
+
+          for (const row of itemRowsRes.rows) {
+            const qty = consolidatedMap.get(row.contract_item_id)!;
+            let group = byContract.get(row.contract_id);
+            if (!group) {
+              group = {
+                contract_id: row.contract_id,
+                contract_number: row.contract_number,
+                contract_year: Number(row.contract_year),
+                supplier_id: row.supplier_id,
+                supplier_name: row.supplier_name,
+                items: [],
+              };
+              byContract.set(row.contract_id, group);
+            }
+            group.items.push({ contract_item_id: row.contract_item_id, quantity: qty });
+          }
+
+          const year = new Date(data.issue_date).getFullYear();
+          let seqCursor = await getNextOfSequenceNumber(client, year);
+
+          const ordersOut: any[] = [];
+          for (const group of byContract.values()) {
+            const ofNumber = `OF ${String(seqCursor).padStart(3, '0')}/${year}`;
+            seqCursor++;
+
+            const processId = await resolveOrderProcessId(client, group.contract_id, null, req.user!.id);
+
+            const order = await createContractOrderWithItems(client, {
+              processId,
+              contractId: group.contract_id,
+              destinationId: data.destination_id || null,
+              supplierId: group.supplier_id,
+              ofNumber,
+              issueDate: data.issue_date,
+              notes: data.notes?.trim() || null,
+              municipality: data.municipality?.trim() || null,
+              items: group.items,
+              useElectronicSignature: Boolean(data.use_electronic_signature),
+              actor: req.user!,
+            });
+
+            ordersOut.push({
+              ...order,
+              total_value: order.total_value !== null ? Number(order.total_value) : 0,
+              contract_number: `${group.contract_number}/${group.contract_year}`,
+              supplier_name: group.supplier_name,
+              items_count: group.items.length,
+            });
+          }
+
+          return ordersOut;
+        }
+      );
+
+      res.status(201).json({
+        success: true,
+        count: createdOrders.length,
+        orders: createdOrders,
       });
     } catch (err) {
       next(err);
@@ -830,7 +1066,10 @@ async function fetchSupplyOrderDocData(orderId: string): Promise<SupplyOrderDocD
             c.delivery_deadline_days as contract_delivery_deadline_days,
             pp.process_number as bidding_number, pp.modality as process_modality,
             d.name as destination_name, d.city as destination_city, d.address as destination_address,
-            cb.full_name as created_by_name
+            cb.full_name as created_by_name,
+            sb.full_name as signer_name,
+            sb.job_title as signer_job_title,
+            sb.signature_data_url as signer_signature_data_url
        from public.supply_orders so
        join public.suppliers s on s.id = so.supplier_id
        left join public.administrative_processes ap on ap.id = so.process_id
@@ -838,6 +1077,7 @@ async function fetchSupplyOrderDocData(orderId: string): Promise<SupplyOrderDocD
        left join public.procurement_processes pp on pp.id = c.procurement_id
        left join public.destinations d on d.id = so.destination_id
        left join public.profiles cb on cb.id = so.created_by
+       left join public.profiles sb on sb.id = coalesce(so.signed_by, so.created_by)
       where so.id = $1`,
     [orderId]
   );
@@ -918,10 +1158,13 @@ async function fetchSupplyOrderDocData(orderId: string): Promise<SupplyOrderDocD
     supplier_address: fullSupplierAddress,
     supplier_phone: row.supplier_phone,
     supplier_email: row.supplier_email,
-    issuer_name: 'JONATHA PEREIRA DE JESUS',
-    issuer_role: 'SUPERVISOR DE COMPRAS',
+    issuer_name: row.signer_name || row.created_by_name || 'JONATHA PEREIRA DE JESUS',
+    issuer_role: row.signer_job_title || 'SUPERVISOR DE COMPRAS',
     is_signed: isSigned,
-    signed_at: row.signed_at,
+    signed_electronically: Boolean(row.signed_electronically),
+    signed_at: row.signed_at || null,
+    signature_image_data_url: row.signer_signature_data_url || null,
+    electronic_signature_hash: row.electronic_signature_hash || null,
     items,
     total_amount: totalAmount,
   };

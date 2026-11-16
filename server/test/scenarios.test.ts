@@ -1649,4 +1649,262 @@ describe('COZAM — Suíte de Testes Obrigatórios (Cenários A até J)', () => 
     expect(Number(checkRestored.body.items[0].reserved_quantity)).toBe(0);
     expect(Number(checkRestored.body.contract.remaining_amount)).toBe(1000);
   });
+
+  // ---------------------------------------------------------------------------
+  // Cenário U: Assinatura no perfil, correção manual de item e Lançamento Múltiplo atômico
+  // ---------------------------------------------------------------------------
+  it('Cenário U: Assinatura eletrônica do perfil, correção manual de item e lançamento múltiplo multi-contrato atômico', async () => {
+    // 1x1 PNG transparente válido em base64
+    const tinyPngDataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+    // 1. Salva assinatura e cargo no perfil
+    const sigRes = await request(app)
+      .put('/api/me/signature')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        job_title: 'COORDENADOR DE COMPRAS — COZAM',
+        signature_data_url: tinyPngDataUrl,
+      })
+      .expect(200);
+
+    expect(sigRes.body.success).toBe(true);
+    expect(sigRes.body.profile.job_title).toBe('COORDENADOR DE COMPRAS — COZAM');
+    expect(sigRes.body.profile.signature_data_url).toBe(tinyPngDataUrl);
+
+    // 2. Cria 3 fornecedores/contratos distintos (Limpeza, Café, Expediente)
+    const supLimpeza = await request(app)
+      .post('/api/suppliers')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Limpex Distribuidora Ltda', cnpj: '33.111.222/0001-01' })
+      .expect(201);
+
+    const supCafe = await request(app)
+      .post('/api/suppliers')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Cafeteria Alagoana Ltda', cnpj: '44.222.333/0001-02' })
+      .expect(201);
+
+    const supExp = await request(app)
+      .post('/api/suppliers')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Papelaria Central Ltda', cnpj: '55.333.444/0001-03' })
+      .expect(201);
+
+    const c1 = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '901',
+        year: 2026,
+        supplier_id: supLimpeza.body.id,
+        object: 'Materiais de limpeza e higienização',
+        signing_date: '2026-01-10',
+        start_date: '2026-01-10',
+        end_date: '2027-12-31',
+        total_amount: 500,
+        items: [
+          {
+            item_code: '01',
+            description: 'Água Sanitária 1L (desalinhada)',
+            category: 'MATERIAL_CONSUMO',
+            unit: 'Litro',
+            original_quantity: 50,
+            unit_price: 5.0,
+            total_price: 250,
+          },
+          {
+            item_code: '02',
+            description: 'Desinfetante Pinho 2L',
+            category: 'MATERIAL_CONSUMO',
+            unit: 'Galão',
+            original_quantity: 25,
+            unit_price: 10.0,
+            total_price: 250,
+          },
+        ],
+      })
+      .expect(201);
+    const c2 = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '902',
+        year: 2026,
+        supplier_id: supCafe.body.id,
+        object: 'Fornecimento de café e descartáveis de copa',
+        signing_date: '2026-01-10',
+        start_date: '2026-01-10',
+        end_date: '2027-12-31',
+        total_amount: 400,
+        items: [
+          {
+            item_code: '01',
+            description: 'Café Torrado e Moído 500g',
+            category: 'AGUA_CAFE',
+            unit: 'Pacote',
+            original_quantity: 20,
+            unit_price: 20.0,
+            total_price: 400,
+          },
+        ],
+      })
+      .expect(201);
+
+    const c3 = await request(app)
+      .post('/api/contracts')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        contract_number: '903',
+        year: 2026,
+        supplier_id: supExp.body.id,
+        object: 'Materiais de expediente e escritório',
+        signing_date: '2026-01-10',
+        start_date: '2026-01-10',
+        end_date: '2027-12-31',
+        total_amount: 300,
+        items: [
+          {
+            item_code: '01',
+            description: 'Grampeador Metálico Mesa',
+            category: 'MATERIAL_EXPEDIENTE',
+            unit: 'Unidade',
+            original_quantity: 10,
+            unit_price: 30.0,
+            total_price: 300,
+          },
+        ],
+      })
+      .expect(201);
+
+    // 3. Correção manual de item (simula ajuste de tabela desalinhada) e adição manual de item
+    const c1Detail = await request(app)
+      .get(`/api/contracts/${c1.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const aguaSanitariaId = c1Detail.body.items.find((it: any) => it.item_code === '01').id;
+
+    const patchItemRes = await request(app)
+      .patch(`/api/contracts/${c1.body.id}/items/${aguaSanitariaId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        description: 'Água Sanitária Cloro Ativo 1L',
+        original_quantity: 60,
+        unit_price: 5.0,
+      })
+      .expect(200);
+
+    expect(patchItemRes.body.description).toBe('Água Sanitária Cloro Ativo 1L');
+    expect(Number(patchItemRes.body.original_quantity)).toBe(60);
+
+    // Adiciona item faltante manualmente ao contrato 2
+    await request(app)
+      .post(`/api/contracts/${c2.body.id}/items`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        item_code: '02',
+        description: 'Mexedor Plástico para Café c/ 500un',
+        category: 'AGUA_CAFE',
+        unit: 'Pacote',
+        original_quantity: 15,
+        unit_price: 8.0,
+      })
+      .expect(201);
+
+    // 4. Pesquisa global por item retorna item corrigido + contrato + saldo disponível
+    const searchAgua = await request(app)
+      .get('/api/contracts/items/search?q=Sanitária')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const foundAgua = searchAgua.body.find((r: any) => r.id === aguaSanitariaId);
+    expect(foundAgua).toBeDefined();
+    expect(foundAgua.contract_number).toBe('901');
+    expect(foundAgua.available_quantity).toBe(60);
+
+    const c2Detail = await request(app)
+      .get(`/api/contracts/${c2.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const cafeId = c2Detail.body.items.find((it: any) => it.item_code === '01').id;
+    const mexedorId = c2Detail.body.items.find((it: any) => it.item_code === '02').id;
+
+    const c3Detail = await request(app)
+      .get(`/api/contracts/${c3.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const grampeadorId = c3Detail.body.items[0].id;
+    const desinfetanteId = c1Detail.body.items.find((it: any) => it.item_code === '02').id;
+
+    // 5. Teste de atomicidade: se um item ultrapassar o saldo, NENHUMA das 3 OFs deve ser gravada
+    await request(app)
+      .post('/api/supply-orders/batch')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        issue_date: '2026-06-15',
+        use_electronic_signature: true,
+        items: [
+          { contract_item_id: aguaSanitariaId, quantity: 5 },
+          { contract_item_id: cafeId, quantity: 999 }, // Estoura saldo (disponível: 20)
+          { contract_item_id: grampeadorId, quantity: 2 },
+        ],
+      })
+      .expect(422);
+
+    const c1AfterRollback = await request(app)
+      .get(`/api/contracts/${c1.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(c1AfterRollback.body.supply_orders).toHaveLength(0);
+
+    // 6. Emissão múltipla válida com mix dos 3 contratos + assinatura eletrônica
+    const batchRes = await request(app)
+      .post('/api/supply-orders/batch')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        issue_date: '2026-06-15',
+        municipality: 'Santana do Mundaú',
+        notes: 'Pedido misto de expediente, café e limpeza',
+        use_electronic_signature: true,
+        items: [
+          { contract_item_id: aguaSanitariaId, quantity: 10 },
+          { contract_item_id: desinfetanteId, quantity: 5 },
+          { contract_item_id: cafeId, quantity: 4 },
+          { contract_item_id: mexedorId, quantity: 3 },
+          { contract_item_id: grampeadorId, quantity: 2 },
+        ],
+      })
+      .expect(201);
+
+    expect(batchRes.body.success).toBe(true);
+    expect(batchRes.body.count).toBe(3);
+    expect(batchRes.body.orders).toHaveLength(3);
+
+    for (const ord of batchRes.body.orders) {
+      expect(ord.status).toBe('CONFIRMADA');
+      expect(ord.signed_electronically).toBe(true);
+      expect(ord.electronic_signature_hash).toBeDefined();
+
+      // 7. Valida geração individual do PDF já assinado para cada uma das 3 ordens
+      const pdfRes = await request(app)
+        .get(`/api/supply-orders/${ord.id}/pdf`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(pdfRes.headers['content-type']).toContain('application/pdf');
+      expect(pdfRes.body.length).toBeGreaterThan(1000);
+    }
+
+    // 8. Confere baixa imediata de saldo nos 3 contratos
+    const c1Final = await request(app).get(`/api/contracts/${c1.body.id}`).set('Authorization', `Bearer ${adminToken}`).expect(200);
+    expect(c1Final.body.items.find((i: any) => i.id === aguaSanitariaId).available_quantity).toBe(50);
+    expect(c1Final.body.items.find((i: any) => i.id === desinfetanteId).available_quantity).toBe(20);
+
+    const c2Final = await request(app).get(`/api/contracts/${c2.body.id}`).set('Authorization', `Bearer ${adminToken}`).expect(200);
+    expect(c2Final.body.items.find((i: any) => i.id === cafeId).available_quantity).toBe(16);
+    expect(c2Final.body.items.find((i: any) => i.id === mexedorId).available_quantity).toBe(12);
+
+    const c3Final = await request(app).get(`/api/contracts/${c3.body.id}`).set('Authorization', `Bearer ${adminToken}`).expect(200);
+    expect(c3Final.body.items[0].available_quantity).toBe(8);
+  });
 });
