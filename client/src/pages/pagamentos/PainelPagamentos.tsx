@@ -29,7 +29,7 @@ import { ModalityBadge } from '../../components/ui/Badges.js';
 import { DocumentActions } from '../../components/ui/DocumentViewerModal.js';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.js';
 import { EditInvoiceModal } from '../../components/notas/EditInvoiceModal.js';
-import { useAuth } from '../../contexts/AuthContext.js';
+import { useAuth, getWelcomeGreeting } from '../../contexts/AuthContext.js';
 
 export function PainelPagamentos() {
   const { profile } = useAuth();
@@ -97,9 +97,16 @@ export function PainelPagamentos() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
-            Fila de Documentos para Pagamento
-          </h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-heading">
+              Fila de Documentos para Pagamento
+            </h1>
+            {profile && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70">
+                {getWelcomeGreeting(profile)}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Notas Fiscais encaminhadas pelo setor de Compras prontas para liquidação financeira
           </p>

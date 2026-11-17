@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (stored === 'mock-admin' || stored === 'admin') {
         const mockProfile: Profile = {
           id: '00000000-0000-0000-0000-000000000001',
-          full_name: 'Administrador Compras (Demonstração)',
+          full_name: 'Jonatha Pereira',
           email: 'compras@cozam.al.gov.br',
           role: 'admin',
           extra_permissions: [],
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (stored === 'mock-pagamentos' || stored === 'pagamentos') {
         const mockProfile: Profile = {
           id: '00000000-0000-0000-0000-000000000002',
-          full_name: 'Operador Pagamentos (Demonstração)',
+          full_name: 'Felipe Góes',
           email: 'pagamentos@cozam.al.gov.br',
           role: 'pagamentos',
           extra_permissions: [],
@@ -199,8 +199,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function getWelcomeGreeting(profile?: Profile | null): string {
   if (!profile) return 'Bem vindo';
-  if (profile.role === 'admin') return 'Bem vindo, Jonatha Pereira';
-  if (profile.role === 'pagamentos') return 'Bem vindo, Felipe Góes';
+  const email = (profile.email || '').toLowerCase();
+  const name = (profile.full_name || '').toLowerCase();
+  if (profile.role === 'pagamentos' || email.includes('pagamento') || name.includes('felipe')) {
+    return 'Bem vindo, Felipe Góes';
+  }
+  if (profile.role === 'admin' || email.includes('compra') || name.includes('jonatha')) {
+    return 'Bem vindo, Jonatha Pereira';
+  }
   return profile.full_name ? `Bem vindo, ${profile.full_name}` : 'Bem vindo';
 }
 

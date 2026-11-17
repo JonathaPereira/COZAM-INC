@@ -155,7 +155,7 @@
 }
 
 .animate-intro-ring {
-  animation: cozamRingSpin 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: cozamRingSpin 4.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .animate-intro-wordmark {
@@ -181,7 +181,7 @@
 
 .animate-intro-progress {
   transform-origin: left;
-  animation: cozamProgressFill 2.05s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards;
+  animation: cozamProgressFill 4.05s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards;
 }
 
 .animate-intro-sheen {

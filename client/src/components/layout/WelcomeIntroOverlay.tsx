@@ -16,7 +16,7 @@ export function WelcomeIntroOverlay() {
   const [exiting, setExiting] = useState(false);
   const [playKey, setPlayKey] = useState(0);
 
-  const storageKey = profile ? `cozam_intro_seen_${profile.id}_${profile.role}` : null;
+  const [lastTriggerId, setLastTriggerId] = useState<string | null>(null);
 
   const startIntro = () => {
     setExiting(false);
@@ -25,13 +25,13 @@ export function WelcomeIntroOverlay() {
   };
 
   useEffect(() => {
-    if (!profile || !storageKey) return;
-    const alreadySeen = sessionStorage.getItem(storageKey);
-    if (!alreadySeen) {
-      sessionStorage.setItem(storageKey, '1');
+    if (!profile) return;
+    const identityKey = `${profile.id}:${profile.role}`;
+    if (lastTriggerId !== identityKey) {
+      setLastTriggerId(identityKey);
       startIntro();
     }
-  }, [profile?.id, profile?.role, storageKey]);
+  }, [profile?.id, profile?.role, lastTriggerId]);
 
   useEffect(() => {
     const onReplay = () => startIntro();
@@ -46,8 +46,8 @@ export function WelcomeIntroOverlay() {
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-    const exitDelay = prefersReduced ? 450 : 2050;
-    const unmountDelay = prefersReduced ? 650 : 2500;
+    const exitDelay = prefersReduced ? 450 : 4050;
+    const unmountDelay = prefersReduced ? 650 : 4500;
 
     const exitTimer = window.setTimeout(() => setExiting(true), exitDelay);
     const doneTimer = window.setTimeout(() => {
@@ -74,7 +74,7 @@ export function WelcomeIntroOverlay() {
 
   const greeting = getWelcomeGreeting(profile);
   const sectorLabel =
-    profile.role === 'pagamentos'
+    profile.role === 'pagamentos' || greeting.includes('Felipe Góes')
       ? 'Setor de Pagamentos & Liquidação Financeira'
       : profile.role === 'admin'
       ? 'Setor de Compras, Contratos & Licitações'
