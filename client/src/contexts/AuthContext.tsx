@@ -194,6 +194,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+export function getWelcomeGreeting(profile?: Profile | null): string {
+  if (!profile) return 'Bem vindo';
+  if (profile.role === 'admin') return 'Bem vindo, Jonatha Pereira';
+  if (profile.role === 'pagamentos') return 'Bem vindo, Felipe Góes';
+  return profile.full_name ? `Bem vindo, ${profile.full_name}` : 'Bem vindo';
+}
+
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth deve ser utilizado dentro de AuthProvider.');

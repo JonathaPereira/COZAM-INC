@@ -201,12 +201,48 @@ export function OrdensList() {
                       {formatBRL(o.invoices_total)}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <DocumentActions
-                        documentId={o.document?.id}
-                        fileName={o.document?.file_name}
-                        kindName="Ordem de Fornecimento"
-                        compact
-                      />
+                      <div className="inline-flex flex-wrap items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              toast.loading('Baixando PDF da OF...', { id: `pdf-row-${o.id}` });
+                              await downloadSupplyOrderPdf(o.id, o.of_number, o.supplier_name, o.total_value);
+                              toast.success('PDF baixado com sucesso!', { id: `pdf-row-${o.id}` });
+                            } catch (e: any) {
+                              toast.error(e.message || 'Erro ao baixar PDF.', { id: `pdf-row-${o.id}` });
+                            }
+                          }}
+                          title="Baixar PDF Oficial da Ordem de Fornecimento"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 text-white text-[11px] font-bold shadow-2xs transition-colors cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" /> PDF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              toast.loading('Baixando planilha XLSX...', { id: `xlsx-row-${o.id}` });
+                              await downloadSupplyOrderXlsx(o.id, o.of_number, o.supplier_name, o.total_value);
+                              toast.success('Planilha XLSX baixada!', { id: `xlsx-row-${o.id}` });
+                            } catch (e: any) {
+                              toast.error(e.message || 'Erro ao baixar XLSX.', { id: `xlsx-row-${o.id}` });
+                            }
+                          }}
+                          title="Baixar Planilha Excel (XLSX)"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-emerald-300 dark:border-emerald-700/80 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/70 text-[11px] font-bold transition-colors cursor-pointer"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5" /> XLSX
+                        </button>
+                        {o.document?.id && (
+                          <DocumentActions
+                            documentId={o.document.id}
+                            fileName={o.document.file_name}
+                            kindName="Ordem de Fornecimento"
+                            compact
+                          />
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-center">
                       {o.empenho_document ? (
@@ -724,9 +760,10 @@ export function OrdemDetail() {
         <div className="flex items-center gap-2 flex-wrap">
           {/* Ações de Download Oficial */}
           <Button
-            variant="secondary"
+            variant="primary"
             size="sm"
-            icon={<Download className="w-3.5 h-3.5 text-indigo-600" />}
+            className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white font-bold shadow-xs"
+            icon={<Download className="w-3.5 h-3.5" />}
             onClick={async () => {
               try {
                 toast.loading('Gerando PDF Oficial...', { id: 'pdf-dl-detail' });
@@ -737,12 +774,13 @@ export function OrdemDetail() {
               }
             }}
           >
-            PDF Oficial
+            Baixar PDF Oficial
           </Button>
           <Button
-            variant="secondary"
+            variant="primary"
             size="sm"
-            icon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}
+            className="bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white font-bold shadow-xs"
+            icon={<FileSpreadsheet className="w-3.5 h-3.5" />}
             onClick={async () => {
               try {
                 toast.loading('Gerando Planilha XLSX...', { id: 'xlsx-dl-detail' });
@@ -753,10 +791,10 @@ export function OrdemDetail() {
               }
             }}
           >
-            Planilha XLSX
+            Baixar XLSX
           </Button>
           <Button
-            variant="primary"
+            variant="outline"
             size="sm"
             icon={<UploadCloud className="w-3.5 h-3.5" />}
             onClick={() => setSignedModalOpen(true)}
@@ -764,10 +802,10 @@ export function OrdemDetail() {
             Anexar Via Assinada
           </Button>
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
-            className="text-sky-700 border-sky-200 bg-sky-50 hover:bg-sky-100"
-            icon={<Mail className="w-3.5 h-3.5 text-sky-600" />}
+            className="text-sky-700 dark:text-sky-200 border-sky-300 dark:border-sky-700/70 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/70"
+            icon={<Mail className="w-3.5 h-3.5 text-sky-600 dark:text-sky-300" />}
             title={
               supply_order.supplier_email
                 ? `Enviar OF via Gmail para ${supply_order.supplier_email}`
@@ -819,10 +857,10 @@ export function OrdemDetail() {
           </Button>
           {canWriteOf && (
             <Button
-              variant="secondary"
+              variant="outline"
               size="sm"
-              className="text-indigo-700 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
-              icon={<FileCheck2 className="w-3.5 h-3.5 text-indigo-600" />}
+              className="text-indigo-700 dark:text-indigo-200 border-indigo-300 dark:border-indigo-700/70 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70"
+              icon={<FileCheck2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-300" />}
               onClick={() => setEmpenhoModalOpen(true)}
             >
               {currentEmpenhoDoc ? 'Substituir Empenho' : 'Anexar Empenho'}
@@ -983,13 +1021,13 @@ export function OrdemDetail() {
 
       {/* Cartão de Arquivo da OF */}
       <Card title="Arquivo Oficial da Ordem de Fornecimento (PDF)">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
           <div>
-            <p className="text-sm font-bold text-slate-900">
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
               {currentDoc ? currentDoc.file_name : 'Nenhum PDF anexado à OF'}
             </p>
             {currentDoc && (
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Versão {currentDoc.version} · Enviado por {currentDoc.uploaded_by_name || 'Sistema'} em {formatDateTimeBR(currentDoc.uploaded_at)}
               </p>
             )}
@@ -1005,16 +1043,16 @@ export function OrdemDetail() {
 
         {/* Histórico de versões se houver mais de 1 */}
         {ofDocs.length > 1 && (
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
               Histórico de versões anteriores
             </p>
             <div className="space-y-2">
               {ofDocs.filter((d) => !d.is_current).map((oldDoc) => (
-                <div key={oldDoc.id} className="text-xs p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
+                <div key={oldDoc.id} className="text-xs p-2.5 rounded-lg bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                   <div>
-                    <span className="font-semibold text-slate-700">{oldDoc.file_name} (v{oldDoc.version})</span>
-                    <p className="text-2xs text-slate-500">Substituído em {formatDateTimeBR(oldDoc.replaced_at)}: "{oldDoc.replace_reason}"</p>
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">{oldDoc.file_name} (v{oldDoc.version})</span>
+                    <p className="text-2xs text-slate-500 dark:text-slate-400">Substituído em {formatDateTimeBR(oldDoc.replaced_at)}: "{oldDoc.replace_reason}"</p>
                   </div>
                   <DocumentActions documentId={oldDoc.id} fileName={oldDoc.file_name} compact />
                 </div>
@@ -1077,16 +1115,16 @@ export function OrdemDetail() {
         </div>
 
         {empenhoDocs.length > 1 && (
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
               Histórico de versões anteriores do Empenho
             </p>
             <div className="space-y-2">
               {empenhoDocs.filter((d) => !d.is_current).map((oldDoc) => (
-                <div key={oldDoc.id} className="text-xs p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
+                <div key={oldDoc.id} className="text-xs p-2.5 rounded-lg bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                   <div>
-                    <span className="font-semibold text-slate-700">{oldDoc.file_name} (v{oldDoc.version})</span>
-                    <p className="text-2xs text-slate-500">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">{oldDoc.file_name} (v{oldDoc.version})</span>
+                    <p className="text-2xs text-slate-500 dark:text-slate-400">
                       Substituído em {formatDateTimeBR(oldDoc.replaced_at)}: "{oldDoc.replace_reason}"
                     </p>
                   </div>
@@ -1103,7 +1141,7 @@ export function OrdemDetail() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-2xs">
+              <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 uppercase tracking-wider text-2xs">
                 <th className="pb-2 font-semibold">Nº NF</th>
                 <th className="pb-2 font-semibold">Emissão</th>
                 <th className="pb-2 font-semibold">Modalidade</th>
@@ -1114,27 +1152,27 @@ export function OrdemDetail() {
                 <th className="pb-2 font-semibold text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {invoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-2.5 font-bold text-slate-900">{inv.invoice_number}</td>
-                  <td className="py-2.5 text-slate-600">{formatDateBR(inv.issue_date)}</td>
-                  <td className="py-2.5">{inv.modality || '—'}</td>
-                  <td className="py-2.5 text-right font-medium text-slate-900 tabular-nums">
+                <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <td className="py-2.5 font-bold text-slate-900 dark:text-slate-100">{inv.invoice_number}</td>
+                  <td className="py-2.5 text-slate-600 dark:text-slate-400">{formatDateBR(inv.issue_date)}</td>
+                  <td className="py-2.5 text-slate-700 dark:text-slate-300">{inv.modality || '—'}</td>
+                  <td className="py-2.5 text-right font-medium text-slate-900 dark:text-slate-100 tabular-nums">
                     {formatBRL(inv.amount)}
                   </td>
-                  <td className="py-2.5 text-right font-bold text-emerald-700 tabular-nums">
+                  <td className="py-2.5 text-right font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
                     {formatBRL(inv.total_paid)}
                   </td>
-                  <td className="py-2.5 text-right font-semibold text-orange-700 tabular-nums">
+                  <td className="py-2.5 text-right font-semibold text-orange-700 dark:text-orange-400 tabular-nums">
                     {formatBRL(inv.balance)}
                   </td>
                   <td className="py-2.5 text-center">
-                    <span className="font-semibold">{inv.status}</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{inv.status}</span>
                   </td>
                   <td className="py-2.5 text-right">
                     <Link to={`/notas/${inv.id}`}>
-                      <Button variant="ghost" size="sm">Ver NF</Button>
+                      <Button variant="outline" size="sm">Ver NF</Button>
                     </Link>
                   </td>
                 </tr>
@@ -1146,10 +1184,10 @@ export function OrdemDetail() {
 
       {/* Modal para substituir documento com justificativa */}
       {replaceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-base font-bold text-slate-900">Substituir PDF da Ordem de Fornecimento</h3>
-            <p className="text-xs text-slate-500">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-2xs">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Substituir PDF da Ordem de Fornecimento</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               O arquivo anterior será preservado no histórico de versões para fins de auditoria.
             </p>
 

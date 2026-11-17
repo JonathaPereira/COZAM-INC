@@ -74,9 +74,9 @@ export function ProcessoDetail() {
 
       {/* Cartão de Objeto / Descrição */}
       <Card title="Objeto do Processo Administrativo">
-        <p className="text-sm text-slate-800 leading-relaxed">{process.description}</p>
+        <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">{process.description}</p>
         {process.notes && (
-          <p className="text-xs text-slate-500 mt-2 italic border-t border-slate-100 pt-2">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 italic border-t border-slate-100 dark:border-slate-800 pt-2">
             Observações: {process.notes}
           </p>
         )}
@@ -84,21 +84,21 @@ export function ProcessoDetail() {
 
       {/* Resumo Financeiro */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-500 uppercase">Total Faturado</span>
-          <p className="text-xl font-bold text-slate-900 mt-1 tabular-nums">
+        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Total Faturado</span>
+          <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
             {formatBRL(process.invoices_total)}
           </p>
         </div>
-        <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200 shadow-2xs">
-          <span className="text-xs font-semibold text-emerald-800 uppercase">Total Pago</span>
-          <p className="text-xl font-bold text-emerald-700 mt-1 tabular-nums">
+        <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
+          <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase">Total Pago</span>
+          <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums">
             {formatBRL(process.paid_total)}
           </p>
         </div>
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-500 uppercase">Saldo Devedor</span>
-          <p className="text-xl font-bold text-orange-700 mt-1 tabular-nums">
+        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Saldo Devedor</span>
+          <p className="text-xl font-bold text-orange-700 dark:text-orange-400 mt-1 tabular-nums">
             {formatBRL(process.invoices_total - process.paid_total)}
           </p>
         </div>
@@ -113,21 +113,21 @@ export function ProcessoDetail() {
           {supply_orders.map((ofItem) => (
             <div
               key={ofItem.id}
-              className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-slate-900 text-sm">OF nº {ofItem.of_number}</span>
-                  <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">
+                  <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">OF nº {ofItem.of_number}</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800/60">
                     {ofItem.supplier_name}
                   </span>
                   {ofItem.municipality && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">
+                    <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800/60">
                       📍 {ofItem.municipality}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   Emissão: {formatDateBR(ofItem.issue_date)} · Valor previsto: {formatBRL(ofItem.total_value)} · {ofItem.invoices_count} NFs vinculadas
                 </p>
               </div>
@@ -154,7 +154,7 @@ export function ProcessoDetail() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-2xs">
+              <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 uppercase tracking-wider text-2xs">
                 <th className="pb-2 font-semibold">Nº NF</th>
                 <th className="pb-2 font-semibold">Fornecedor</th>
                 <th className="pb-2 font-semibold">Emissão</th>
@@ -166,26 +166,26 @@ export function ProcessoDetail() {
                 <th className="pb-2 font-semibold text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {invoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-2.5 font-bold text-slate-900">{inv.invoice_number}</td>
-                  <td className="py-2.5 text-slate-700">{inv.supplier_name}</td>
-                  <td className="py-2.5 text-slate-600">{formatDateBR(inv.issue_date)}</td>
+                <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <td className="py-2.5 font-bold text-slate-900 dark:text-slate-100">{inv.invoice_number}</td>
+                  <td className="py-2.5 text-slate-700 dark:text-slate-300">{inv.supplier_name}</td>
+                  <td className="py-2.5 text-slate-600 dark:text-slate-400">{formatDateBR(inv.issue_date)}</td>
                   <td className="py-2.5"><ModalityBadge modality={inv.modality} /></td>
-                  <td className="py-2.5 text-right font-medium text-slate-900 tabular-nums">
+                  <td className="py-2.5 text-right font-medium text-slate-900 dark:text-slate-100 tabular-nums">
                     {formatBRL(inv.amount)}
                   </td>
-                  <td className="py-2.5 text-right font-bold text-emerald-700 tabular-nums">
+                  <td className="py-2.5 text-right font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
                     {formatBRL(inv.total_paid)}
                   </td>
-                  <td className="py-2.5 text-right font-semibold text-orange-700 tabular-nums">
+                  <td className="py-2.5 text-right font-semibold text-orange-700 dark:text-orange-400 tabular-nums">
                     {formatBRL(inv.balance)}
                   </td>
                   <td className="py-2.5 text-center"><StatusBadge status={inv.status} /></td>
                   <td className="py-2.5 text-right">
                     <Link to={`/notas/${inv.id}`}>
-                      <Button variant="ghost" size="sm">Ver NF</Button>
+                      <Button variant="outline" size="sm">Ver NF</Button>
                     </Link>
                   </td>
                 </tr>
@@ -199,13 +199,13 @@ export function ProcessoDetail() {
       <Card title="Trilha de Auditoria do Processo" subtitle="Histórico imutável de todas as movimentações">
         <div className="space-y-3">
           {audit.map((a) => (
-            <div key={a.id} className="text-xs p-3 rounded-lg bg-slate-50 border border-slate-200/80 flex items-start justify-between gap-3">
+            <div key={a.id} className="text-xs p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 flex items-start justify-between gap-3">
               <div>
-                <p className="font-semibold text-slate-800">{a.action} — {a.summary}</p>
-                {a.reason && <p className="text-slate-600 italic mt-0.5">Motivo: "{a.reason}"</p>}
-                <p className="text-2xs text-slate-400 mt-1">Por {a.actor_name || 'Sistema'} ({a.actor_role})</p>
+                <p className="font-semibold text-slate-800 dark:text-slate-100">{a.action} — {a.summary}</p>
+                {a.reason && <p className="text-slate-600 dark:text-slate-300 italic mt-0.5">Motivo: "{a.reason}"</p>}
+                <p className="text-2xs text-slate-400 dark:text-slate-500 mt-1">Por {a.actor_name || 'Sistema'} ({a.actor_role})</p>
               </div>
-              <span className="text-2xs text-slate-400 shrink-0">{formatDateTimeBR(a.occurred_at)}</span>
+              <span className="text-2xs text-slate-400 dark:text-slate-500 shrink-0">{formatDateTimeBR(a.occurred_at)}</span>
             </div>
           ))}
         </div>

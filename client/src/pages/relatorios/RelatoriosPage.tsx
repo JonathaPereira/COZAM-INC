@@ -111,20 +111,22 @@ export function RelatoriosPage() {
         {report && (
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant="primary"
               size="sm"
-              icon={<Download className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />}
+              className="bg-rose-600 hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 text-white font-bold shadow-xs"
+              icon={<Download className="w-4 h-4" />}
               onClick={handleExportPdf}
             >
-              Exportar PDF
+              Baixar PDF
             </Button>
             <Button
-              variant="outline"
+              variant="primary"
               size="sm"
-              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />}
+              className="bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white font-bold shadow-xs"
+              icon={<FileSpreadsheet className="w-4 h-4" />}
               onClick={handleExportExcel}
             >
-              Exportar Excel
+              Baixar Excel
             </Button>
           </div>
         )}

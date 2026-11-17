@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 
 import { AuthProvider } from './contexts/AuthContext.js';
-import { ThemeProvider } from './contexts/ThemeContext.js';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext.js';
 import { AppShell, RequireAuth, RequirePermission } from './components/layout/AppShell.js';
 
 // Páginas de Autenticação
@@ -251,9 +251,14 @@ export function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-        <Toaster position="top-right" richColors />
+        <ToasterWrapper />
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
   );
+}
+
+function ToasterWrapper() {
+  const { isDark } = useTheme();
+  return <Toaster position="top-right" richColors theme={isDark ? 'dark' : 'light'} />;
 }

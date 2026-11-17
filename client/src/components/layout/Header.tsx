@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Menu, Search, LogOut, User as UserIcon, Shield, ChevronDown, Sun, Moon, Bell } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext.js';
+import { useAuth, getWelcomeGreeting } from '../../contexts/AuthContext.js';
 import { useTheme } from '../../contexts/ThemeContext.js';
 import { ROLE_LABELS } from '@cozam/shared';
 import { ProfileModal } from '../profile/ProfileModal.js';
@@ -10,6 +10,7 @@ import { api } from '../../lib/api.js';
 
 export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
   const { profile, logout } = useAuth();
+  const welcomeGreeting = getWelcomeGreeting(profile);
   const { isDark, toggleTheme } = useTheme();
   const [search, setSearch] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -113,7 +114,7 @@ export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
             </div>
             <div className="text-left hidden sm:block">
               <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-tight">
-                {profile?.full_name || 'Carregando...'}
+                {profile ? welcomeGreeting : 'Carregando...'}
               </p>
               <p className="text-2xs text-slate-500 dark:text-slate-400 font-medium">
                 {profile ? ROLE_LABELS[profile.role] : ''}
@@ -127,7 +128,7 @@ export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
               <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
               <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{profile?.full_name}</p>
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{welcomeGreeting}</p>
                   <p className="text-2xs text-slate-500 dark:text-slate-400 truncate">{profile?.email}</p>
                 </div>
 

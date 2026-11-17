@@ -111,9 +111,9 @@ export function FornecedoresPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-slate-900 text-base">{s.name}</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">{s.name}</h3>
                     {s.display_order === 1 && (
-                      <span className="text-2xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      <span className="text-2xs font-semibold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70">
                         Principal (~90%)
                       </span>
                     )}

@@ -157,30 +157,32 @@ export function DocumentActions({
   if (compact) {
     return (
       <>
-        <div className="inline-flex items-center gap-1">
+        <div className="inline-flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setViewerOpen(true)}
             title="Visualizar documento"
-            className="p-1.5 rounded text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 text-[11px] font-semibold transition-colors cursor-pointer"
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-3.5 h-3.5" />
+            <span className="hidden xl:inline">Ver</span>
           </button>
           <button
             type="button"
             onClick={() => downloadDocument(documentId, name)}
             title="Baixar arquivo original"
-            className="p-1.5 rounded text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-emerald-300 dark:border-emerald-700/80 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/70 text-[11px] font-bold transition-colors cursor-pointer"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
+            <span>Baixar</span>
           </button>
           <button
             type="button"
             onClick={() => printDocument(documentId)}
             title="Imprimir documento"
-            className="p-1.5 rounded text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+            className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -207,12 +209,13 @@ export function DocumentActions({
           Visualizar
         </Button>
         <Button
-          variant="outline"
+          variant="primary"
           size="sm"
           icon={<Download className="w-3.5 h-3.5" />}
           onClick={() => downloadDocument(documentId, name)}
+          className="font-bold"
         >
-          Baixar
+          Baixar Arquivo
         </Button>
         <Button
           variant="outline"
@@ -229,7 +232,7 @@ export function DocumentActions({
             size="sm"
             icon={<RefreshCw className="w-3.5 h-3.5" />}
             onClick={onReplace}
-            className="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+            className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700"
           >
             Substituir
           </Button>

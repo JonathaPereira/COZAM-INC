@@ -21,7 +21,7 @@ import {
   Landmark,
   Layers,
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext.js';
+import { useAuth, getWelcomeGreeting } from '../../contexts/AuthContext.js';
 import { BRAND } from '../../config/brand.js';
 import { ROLE_LABELS } from '@cozam/shared';
 import { api } from '../../lib/api.js';
@@ -134,12 +134,13 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
 
       {/* Cartão do setor ativo */}
       {profile && (
-        <div className="px-4 py-3 mx-3 my-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
-          <p className="text-2xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Acesso autorizado</p>
+        <div className="px-4 py-3 mx-3 my-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/70">
+          <p className="text-2xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+            {getWelcomeGreeting(profile)}
+          </p>
           <p className="text-xs font-bold text-slate-800 dark:text-slate-100 mt-0.5 truncate">
             {ROLE_LABELS[profile.role]}
           </p>
-          <p className="text-2xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{profile.full_name}</p>
         </div>
       )}
 

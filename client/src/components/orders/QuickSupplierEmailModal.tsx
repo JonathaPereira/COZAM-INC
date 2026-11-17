@@ -98,11 +98,11 @@ export function QuickSupplierEmailModal({
       title={`Enviar ${target.ofNumber} via Gmail`}
     >
       <form onSubmit={handleConfirm} className="space-y-4">
-        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-700 space-y-1">
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 p-3 text-xs text-slate-700 dark:text-slate-200 space-y-1">
           <p>
             <span className="font-semibold">Fornecedor:</span> {target.supplierName}
           </p>
-          <p className="text-slate-500">
+          <p className="text-slate-500 dark:text-slate-400">
             O e-mail ficará salvo no cadastro do fornecedor. Ao confirmar, o Gmail abrirá na conta{' '}
             <strong>comprascozam@gmail.com</strong> com o texto institucional pré-preenchido para você anexar os arquivos e enviar.
           </p>
@@ -119,7 +119,7 @@ export function QuickSupplierEmailModal({
         />
 
         {onDownloadPdf && (
-          <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-200 bg-white cursor-pointer text-xs text-slate-700">
+          <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 cursor-pointer text-xs text-slate-700 dark:text-slate-200">
             <input
               type="checkbox"
               checked={alsoDownloadPdf}

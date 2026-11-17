@@ -204,34 +204,47 @@ export function PendenciasHistoricas() {
                 <th className="pb-2 font-semibold text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {historicalInvoices?.data && historicalInvoices.data.length > 0 ? (
                 historicalInvoices.data.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3 font-bold text-slate-900">{inv.invoice_number}</td>
-                    <td className="py-3 font-medium text-slate-800">{inv.supplier_name}</td>
-                    <td className="py-3 text-slate-600">{formatDateBR(inv.issue_date)}</td>
-                    <td className="py-3 text-right tabular-nums font-semibold text-slate-900">
+                  <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 font-bold text-slate-900 dark:text-slate-100">{inv.invoice_number}</td>
+                    <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{inv.supplier_name}</td>
+                    <td className="py-3 text-slate-600 dark:text-slate-400">{formatDateBR(inv.issue_date)}</td>
+                    <td className="py-3 text-right tabular-nums font-semibold text-slate-900 dark:text-slate-100">
                       {inv.amount !== null ? formatBRL(inv.amount) : 'Não informado'}
                     </td>
-                    <td className="py-3 text-right tabular-nums font-bold text-emerald-700">
+                    <td className="py-3 text-right tabular-nums font-bold text-emerald-700 dark:text-emerald-400">
                       {formatBRL(inv.total_paid)}
                     </td>
-                    <td className="py-3 text-right tabular-nums font-bold text-orange-700">
+                    <td className="py-3 text-right tabular-nums font-bold text-orange-700 dark:text-orange-400">
                       {inv.balance !== null ? formatBRL(inv.balance) : '—'}
                     </td>
-                    <td className="py-3 text-slate-600 text-2xs max-w-xs truncate" title={inv.historical_source || ''}>
+                    <td className="py-3 text-slate-600 dark:text-slate-400 text-2xs max-w-xs truncate" title={inv.historical_source || ''}>
                       {inv.historical_source || '—'}
                     </td>
                     <td className="py-3 text-center">
                       <StatusBadge status={inv.status} />
                     </td>
                     <td className="py-3 text-right">
-                      <Link to={`/notas/${inv.id}`}>
-                        <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />}>
-                          Abrir
-                        </Button>
-                      </Link>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {!inv.verified && canWrite && (
+                          <Link to={`/notas/${inv.id}?verify=1`}>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white font-bold"
+                            >
+                              Verificar
+                            </Button>
+                          </Link>
+                        )}
+                        <Link to={`/notas/${inv.id}`}>
+                          <Button variant="outline" size="sm" icon={<Eye className="w-3.5 h-3.5" />}>
+                            Abrir
+                          </Button>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -258,13 +271,13 @@ export function PendenciasHistoricas() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
                 Fornecedor <span className="text-rose-500">*</span>
               </label>
               <select
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white"
+                className="w-full text-xs p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 required
               >
                 <option value="">Selecione o fornecedor...</option>
@@ -285,7 +298,7 @@ export function PendenciasHistoricas() {
 
           {/* Situação informada */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1.5">
               Situação Inicial Identificada <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -301,12 +314,12 @@ export function PendenciasHistoricas() {
                   onClick={() => setReportedStatus(opt.val as any)}
                   className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                     reportedStatus === opt.val
-                      ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-600/20'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
+                      ? 'border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 ring-2 ring-emerald-600/20'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600'
                   }`}
                 >
-                  <p className="text-xs font-bold text-slate-900">{opt.label}</p>
-                  <p className="text-2xs text-slate-500 mt-0.5">{opt.desc}</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{opt.label}</p>
+                  <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">{opt.desc}</p>
                 </button>
               ))}
             </div>
@@ -346,8 +359,8 @@ export function PendenciasHistoricas() {
           </div>
 
           {reportedStatus === 'PAGA' && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-              <label className="flex items-start gap-2 text-xs font-semibold text-emerald-900 cursor-pointer">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl">
+              <label className="flex items-start gap-2 text-xs font-semibold text-emerald-900 dark:text-emerald-200 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={confirmPaidCheckbox}

@@ -273,9 +273,20 @@ export function NotasFiscaisList() {
                       <StatusBadge status={inv.status} />
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {!inv.verified && can('historical.write') && (
+                          <Link to={`/notas/${inv.id}?verify=1`}>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white font-bold"
+                            >
+                              Verificar
+                            </Button>
+                          </Link>
+                        )}
                         <Link to={`/notas/${inv.id}`}>
-                          <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />}>
+                          <Button variant="outline" size="sm" icon={<Eye className="w-3.5 h-3.5" />}>
                             Abrir
                           </Button>
                         </Link>
