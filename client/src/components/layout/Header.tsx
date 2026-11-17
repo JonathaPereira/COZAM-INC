@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Menu, Search, LogOut, User as UserIcon, Shield, ChevronDown, Sun, Moon, Bell } from 'lucide-react';
+import { Menu, Search, LogOut, User as UserIcon, Shield, ChevronDown, Sun, Moon, Bell, Sparkles } from 'lucide-react';
 import { useAuth, getWelcomeGreeting } from '../../contexts/AuthContext.js';
 import { useTheme } from '../../contexts/ThemeContext.js';
 import { ROLE_LABELS } from '@cozam/shared';
 import { ProfileModal } from '../profile/ProfileModal.js';
+import { triggerIntroReplay } from './WelcomeIntroOverlay.js';
 import { api } from '../../lib/api.js';
 
 export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
@@ -142,6 +143,18 @@ export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
                 >
                   <UserIcon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                   <span>Meu Perfil e Senha</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    triggerIntroReplay();
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+                  <span>Rever Transição de Boas-vindas</span>
                 </button>
 
                 <button

@@ -64,3 +64,126 @@
     display: none !important;
   }
 }
+
+/* ============================================================================
+ * CapCut-style Welcome Intro Transition Keyframes
+ * ========================================================================== */
+@keyframes cozamLogoPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) rotate(-8deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06) rotate(1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes cozamRingSpin {
+  0% {
+    transform: rotate(0deg) scale(0.88);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: rotate(180deg) scale(1.08);
+    opacity: 0.35;
+  }
+}
+
+@keyframes cozamTextMaskUp {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.96);
+    letter-spacing: 0.18em;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    letter-spacing: -0.02em;
+  }
+}
+
+@keyframes cozamFadeSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cozamLineExpand {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes cozamProgressFill {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes cozamSheenSweep {
+  0% {
+    transform: translateX(-140%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(240%) skewX(-20deg);
+  }
+}
+
+.animate-intro-logo {
+  animation: cozamLogoPop 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-intro-ring {
+  animation: cozamRingSpin 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-intro-wordmark {
+  opacity: 0;
+  animation: cozamTextMaskUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
+}
+
+.animate-intro-slogan {
+  opacity: 0;
+  animation: cozamFadeSlideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.52s forwards;
+}
+
+.animate-intro-line {
+  opacity: 0;
+  transform-origin: center;
+  animation: cozamLineExpand 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.72s forwards;
+}
+
+.animate-intro-welcome {
+  opacity: 0;
+  animation: cozamFadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.85s forwards;
+}
+
+.animate-intro-progress {
+  transform-origin: left;
+  animation: cozamProgressFill 2.05s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards;
+}
+
+.animate-intro-sheen {
+  animation: cozamSheenSweep 1.1s ease-in-out 0.45s forwards;
+}

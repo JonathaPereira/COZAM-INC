@@ -165,6 +165,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut();
       }
       localStorage.removeItem('cozam_token');
+      Object.keys(sessionStorage).forEach((k) => {
+        if (k.startsWith('cozam_intro_seen_')) sessionStorage.removeItem(k);
+      });
       setProfile(null);
       setPermissions(new Set());
     } finally {

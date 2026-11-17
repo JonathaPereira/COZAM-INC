@@ -3,6 +3,7 @@ import { Outlet, Navigate } from 'react-router-dom';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 import { Sidebar } from './Sidebar.js';
 import { Header } from './Header.js';
+import { WelcomeIntroOverlay } from './WelcomeIntroOverlay.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 import { Button } from '../ui/Button.js';
 import type { Permission } from '@cozam/shared';
@@ -12,6 +13,7 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors">
+      <WelcomeIntroOverlay />
       {/* Sidebar Desktop */}
       <div className="hidden md:flex shrink-0">
         <Sidebar />
