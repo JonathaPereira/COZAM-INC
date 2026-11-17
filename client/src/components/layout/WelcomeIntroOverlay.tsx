@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { BRAND } from '../../config/brand.js';
-import { getWelcomeGreeting, useAuth } from '../../contexts/AuthContext.js';
-import { ROLE_LABELS } from '@cozam/shared';
+import { getDisplayRoleLabel, getWelcomeGreeting, useAuth } from '../../contexts/AuthContext.js';
 
 const INTRO_EVENT = 'cozam:replay-intro';
 
@@ -73,12 +72,7 @@ export function WelcomeIntroOverlay() {
   if (!visible || !profile) return null;
 
   const greeting = getWelcomeGreeting(profile);
-  const sectorLabel =
-    profile.role === 'pagamentos' || greeting.includes('Felipe Góes')
-      ? 'Setor de Pagamentos & Liquidação Financeira'
-      : profile.role === 'admin'
-      ? 'Setor de Compras, Contratos & Licitações'
-      : ROLE_LABELS[profile.role];
+  const cargoLabel = getDisplayRoleLabel(profile);
 
   const handleSkip = () => {
     setExiting(true);
@@ -136,16 +130,16 @@ export function WelcomeIntroOverlay() {
         {/* Linha divisória expansiva */}
         <div className="animate-intro-line my-6 h-px w-48 bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
 
-        {/* Saudação Personalizada */}
-        <div className="animate-intro-welcome space-y-2.5">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 text-xs font-semibold text-emerald-300">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>{sectorLabel}</span>
-          </div>
-
+        {/* Saudação Personalizada + Cargo */}
+        <div className="animate-intro-welcome space-y-3">
           <p className="font-heading text-2xl sm:text-4xl font-bold text-white tracking-tight">
             {greeting}
           </p>
+
+          <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 text-xs font-semibold text-emerald-300">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>{cargoLabel}</span>
+          </div>
         </div>
 
         {/* Barra de progresso minimalista */}

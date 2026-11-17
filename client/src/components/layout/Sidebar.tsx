@@ -21,9 +21,8 @@ import {
   Landmark,
   Layers,
 } from 'lucide-react';
-import { useAuth, getWelcomeGreeting } from '../../contexts/AuthContext.js';
+import { useAuth, getDisplayRoleLabel, getWelcomeGreeting } from '../../contexts/AuthContext.js';
 import { BRAND } from '../../config/brand.js';
-import { ROLE_LABELS } from '@cozam/shared';
 import { api } from '../../lib/api.js';
 
 interface NavItem {
@@ -139,7 +138,7 @@ export function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void }) {
             {getWelcomeGreeting(profile)}
           </p>
           <p className="text-xs font-bold text-slate-800 dark:text-slate-100 mt-0.5 truncate">
-            {ROLE_LABELS[profile.role]}
+            {getDisplayRoleLabel(profile)}
           </p>
         </div>
       )}

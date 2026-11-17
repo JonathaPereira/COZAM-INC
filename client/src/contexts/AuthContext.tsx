@@ -197,17 +197,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+function isFelipeAccount(profile?: Profile | null): boolean {
+  if (!profile) return false;
+  const email = (profile.email || '').toLowerCase();
+  const name = (profile.full_name || '').toLowerCase();
+  return (
+    email === 'superintendencia@cozam.com' ||
+    email.includes('superintend') ||
+    name.includes('superintend') ||
+    profile.role === 'pagamentos' ||
+    email.includes('pagamento') ||
+    name.includes('felipe')
+  );
+}
+
 export function getWelcomeGreeting(profile?: Profile | null): string {
   if (!profile) return 'Bem vindo';
   const email = (profile.email || '').toLowerCase();
   const name = (profile.full_name || '').toLowerCase();
-  if (profile.role === 'pagamentos' || email.includes('pagamento') || name.includes('felipe')) {
+  if (isFelipeAccount(profile)) {
     return 'Bem vindo, Felipe Góes';
   }
   if (profile.role === 'admin' || email.includes('compra') || name.includes('jonatha')) {
     return 'Bem vindo, Jonatha Pereira';
   }
   return profile.full_name ? `Bem vindo, ${profile.full_name}` : 'Bem vindo';
+}
+
+export function getDisplayRoleLabel(profile?: Profile | null): string {
+  if (!profile) return '';
+  if (isFelipeAccount(profile) || profile.role === 'admin_secundario') {
+    return 'Superintendente do COZAM';
+  }
+  if (profile.role === 'admin') {
+    return 'Administrador — Compras';
+  }
+  return profile.role;
 }
 
 export function useAuth() {

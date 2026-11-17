@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Menu, Search, LogOut, User as UserIcon, Shield, ChevronDown, Sun, Moon, Bell, Sparkles } from 'lucide-react';
-import { useAuth, getWelcomeGreeting } from '../../contexts/AuthContext.js';
+import { useAuth, getDisplayRoleLabel, getWelcomeGreeting } from '../../contexts/AuthContext.js';
 import { useTheme } from '../../contexts/ThemeContext.js';
-import { ROLE_LABELS } from '@cozam/shared';
 import { ProfileModal } from '../profile/ProfileModal.js';
 import { triggerIntroReplay } from './WelcomeIntroOverlay.js';
 import { api } from '../../lib/api.js';
@@ -111,14 +110,14 @@ export function Header({ onOpenMobile }: { onOpenMobile?: () => void }) {
             className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors cursor-pointer select-none"
           >
             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-800 to-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-              {getInitials(profile?.full_name)}
+              {getInitials(welcomeGreeting.replace(/^Bem vindo,\s*/i, ''))}
             </div>
             <div className="text-left hidden sm:block">
               <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-tight">
                 {profile ? welcomeGreeting : 'Carregando...'}
               </p>
               <p className="text-2xs text-slate-500 dark:text-slate-400 font-medium">
-                {profile ? ROLE_LABELS[profile.role] : ''}
+                {profile ? getDisplayRoleLabel(profile) : ''}
               </p>
             </div>
             <ChevronDown className="w-4 h-4 text-slate-400 dark:text-slate-500 hidden sm:block" />
